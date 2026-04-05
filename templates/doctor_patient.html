@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>Пациент {{ patient.name }} ({{ patient.id }})</h1>
+  <div class="actions">
+    <a class="btn ghost" href="{{ url_for('doctor_my_patients') }}">Назад</a>
+    <a class="btn" href="{{ url_for('doctor_create_encounter') }}">Создать прием</a>
+  </div>
+  <h2>Приемы</h2>
+  <table>
+    <tr>
+      <th>ID</th>
+      <th>Тип</th>
+      <th>Начало</th>
+      <th>Окончание</th>
+      <th>bed_id</th>
+      <th>Действия</th>
+    </tr>
+    {% for e in encounters %}
+    <tr>
+      <td>{{ e.id }}</td>
+      <td>{{ e.type }}</td>
+      <td>{{ e.start_datetime }}</td>
+      <td>{{ e.end_datetime }}</td>
+      <td>{{ e.bed_id }}</td>
+      <td class="actions">
+        <a class="btn ghost" href="{{ url_for('doctor_edit_encounter', encounter_id=e.id) }}">Изменить</a>
+        <a class="btn ghost" href="{{ url_for('doctor_add_treatment', encounter_id=e.id) }}">Назначение</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  <h2>Назначения</h2>
+  <table>
+    <tr>
+      <th>ID</th>
+      <th>encounter_id</th>
+      <th>Тип</th>
+      <th>Процедура</th>
+      <th>Препарат</th>
+      <th>Период</th>
+      <th>Частота</th>
+      <th>Заметка</th>
+    </tr>
+    {% for t in treatments %}
+    <tr>
+      <td>{{ t.id }}</td>
+      <td>{{ t.encounter_id }}</td>
+      <td>{{ t.type }}</td>
+      <td>{{ t.procedure_name if t.procedure_name else '' }}</td>
+      <td>{{ t.medication_name if t.medication_name else '' }}</td>
+      <td>{{ t.start_date }} - {{ t.end_date }}</td>
+      <td>{{ t.frequency }}</td>
+      <td>{{ t.note }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+{% endblock %}

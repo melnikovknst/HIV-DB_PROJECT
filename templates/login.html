@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>Вход</h1>
+  <p class="muted">Выберите роль и укажите ID</p>
+  {% if error %}
+  <div class="alert">{{ error }}</div>
+  {% endif %}
+  <form method="post">
+    <div class="grid">
+      <div class="field">
+        <label>ID</label>
+        <input type="number" name="user_id" required>
+      </div>
+      <div class="field">
+        <label>Роль</label>
+        <div class="chips">
+          <span class="chip">Врач</span>
+          <span class="chip">Пациент</span>
+        </div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn" type="submit" name="role" value="doctor">Я врач</button>
+      <button class="btn ghost" type="submit" name="role" value="patient">Я пациент</button>
+    </div>
+  </form>
+{% endblock %}

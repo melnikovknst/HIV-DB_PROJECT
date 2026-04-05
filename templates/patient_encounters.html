@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>Мои приемы</h1>
+  <div class="actions">
+    <a class="btn ghost" href="{{ url_for('patient_treatments') }}">Мои назначения</a>
+  </div>
+  <table>
+    <tr>
+      <th>ID</th>
+      <th>doctor_id</th>
+      <th>bed_id</th>
+      <th>type</th>
+      <th>start_datetime</th>
+      <th>end_datetime</th>
+    </tr>
+    {% for e in encounters %}
+    <tr>
+      <td>{{ e.id }}</td>
+      <td>{{ e.doctor_id }}</td>
+      <td>{{ e.bed_id }}</td>
+      <td>{{ e.type }}</td>
+      <td>{{ e.start_datetime }}</td>
+      <td>{{ e.end_datetime }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+{% endblock %}

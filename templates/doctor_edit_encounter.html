@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>Редактировать прием {{ encounter.id }}</h1>
+  {% if error %}
+  <div class="alert">{{ error }}</div>
+  {% endif %}
+  {% if success %}
+  <div class="alert">{{ success }}</div>
+  {% endif %}
+  <form method="post">
+    <div class="grid">
+      <div class="field">
+        <label>patient_id</label>
+        <input type="number" name="patient_id" value="{{ encounter.patient_id }}" required>
+      </div>
+      <div class="field">
+        <label>bed_id</label>
+        <input type="number" name="bed_id" value="{{ encounter.bed_id if encounter.bed_id is not none else '' }}">
+      </div>
+      <div class="field">
+        <label>type</label>
+        <input type="text" name="type" value="{{ encounter.type }}" required>
+      </div>
+      <div class="field">
+        <label>start_datetime</label>
+        <input type="datetime-local" name="start_datetime" value="{{ encounter.start_datetime.strftime('%Y-%m-%dT%H:%M') }}" required>
+      </div>
+      <div class="field">
+        <label>end_datetime</label>
+        <input type="datetime-local" name="end_datetime" value="{{ encounter.end_datetime.strftime('%Y-%m-%dT%H:%M') }}" required>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn" type="submit">Сохранить</button>
+    </div>
+  </form>
+{% endblock %}

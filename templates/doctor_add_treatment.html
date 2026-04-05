@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>Добавить назначение</h1>
+  <p class="muted">encounter_id: {{ encounter_id }}</p>
+  {% if error %}
+  <div class="alert">{{ error }}</div>
+  {% endif %}
+  {% if success %}
+  <div class="alert">{{ success }}</div>
+  {% endif %}
+  <form method="post">
+    <div class="grid">
+      <div class="field">
+        <label>procedure_id</label>
+        <input type="number" name="procedure_id">
+      </div>
+      <div class="field">
+        <label>medication_id</label>
+        <input type="number" name="medication_id">
+      </div>
+      <div class="field">
+        <label>start_date</label>
+        <input type="date" name="start_date" required>
+      </div>
+      <div class="field">
+        <label>end_date</label>
+        <input type="date" name="end_date" required>
+      </div>
+      <div class="field">
+        <label>frequency</label>
+        <input type="text" name="frequency" required>
+      </div>
+      <div class="field">
+        <label>type</label>
+        <input type="text" name="type" required>
+      </div>
+      <div class="field">
+        <label>note</label>
+        <input type="text" name="note" required>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn" type="submit">Создать</button>
+    </div>
+  </form>
+{% endblock %}
