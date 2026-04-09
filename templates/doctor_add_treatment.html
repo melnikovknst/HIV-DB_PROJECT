@@ -1,46 +1,73 @@
 {% extends "base.html" %}
 {% block content %}
-  <h1>Добавить назначение</h1>
-  <p class="muted">encounter_id: {{ encounter_id }}</p>
-  {% if error %}
-  <div class="alert">{{ error }}</div>
-  {% endif %}
-  {% if success %}
-  <div class="alert">{{ success }}</div>
-  {% endif %}
-  <form method="post">
-    <div class="grid">
-      <div class="field">
-        <label>procedure_id</label>
-        <input type="number" name="procedure_id">
+  <div class="card stack">
+    <div class="section-head">
+      <div>
+        <h1>Добавить назначение</h1>
+        <p class="muted">Прием #{{ encounter.id }} | Пациент: {{ patient.name }}</p>
       </div>
-      <div class="field">
-        <label>medication_id</label>
-        <input type="number" name="medication_id">
-      </div>
-      <div class="field">
-        <label>start_date</label>
-        <input type="date" name="start_date" required>
-      </div>
-      <div class="field">
-        <label>end_date</label>
-        <input type="date" name="end_date" required>
-      </div>
-      <div class="field">
-        <label>frequency</label>
-        <input type="text" name="frequency" required>
-      </div>
-      <div class="field">
-        <label>type</label>
-        <input type="text" name="type" required>
-      </div>
-      <div class="field">
-        <label>note</label>
-        <input type="text" name="note" required>
+      <div class="actions">
+        <a class="btn ghost" href="{{ url_for('doctor_patient', patient_id=patient.id) }}">Назад к пациенту</a>
       </div>
     </div>
-    <div class="actions">
-      <button class="btn" type="submit">Создать</button>
-    </div>
-  </form>
+    {% if error %}
+      <div class="alert">{{ error }}</div>
+    {% endif %}
+    <form method="post" class="stack">
+      <div class="grid">
+        <div class="field">
+          <label>Режим назначения</label>
+          <select name="assignment_kind">
+            <option value="procedure" {% if form_data.assignment_kind == 'procedure' %}selected{% endif %}>Процедура</option>
+            <option value="medication" {% if form_data.assignment_kind == 'medication' %}selected{% endif %}>Лекарство</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Процедура</label>
+          <select name="procedure_id">
+            <option value="">Не выбрано</option>
+            {% for procedure in procedures %}
+              <option value="{{ procedure.id }}" {% if form_data.procedure_id == procedure.id|string %}selected{% endif %}>
+                {{ procedure.name }} ({{ procedure.code }})
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>Лекарство</label>
+          <select name="medication_id">
+            <option value="">Не выбрано</option>
+            {% for medication in medications %}
+              <option value="{{ medication.id }}" {% if form_data.medication_id == medication.id|string %}selected{% endif %}>
+                {{ medication.name }} ({{ medication.form }} {{ medication.strength }})
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>Дата начала</label>
+          <input type="date" name="start_date" value="{{ form_data.start_date }}" required>
+        </div>
+        <div class="field">
+          <label>Дата окончания</label>
+          <input type="date" name="end_date" value="{{ form_data.end_date }}" required>
+        </div>
+        <div class="field">
+          <label>Частота</label>
+          <input type="text" name="frequency" value="{{ form_data.frequency }}" placeholder="once_daily / one_time" required>
+        </div>
+        <div class="field">
+          <label>Тип назначения</label>
+          <input type="text" name="type" value="{{ form_data.type }}" placeholder="procedure / medication" required>
+        </div>
+      </div>
+      <div class="field">
+        <label>Примечание</label>
+        <textarea name="note" required>{{ form_data.note }}</textarea>
+      </div>
+      <div class="actions">
+        <button class="btn" type="submit">Сохранить назначение</button>
+      </div>
+    </form>
+  </div>
 {% endblock %}

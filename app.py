@@ -2,8 +2,9 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
-from flask import Flask, render_template, request, redirect, url_for, session, abort
+from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
 import db
+from demo_seed import ensure_demo_data
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -38,18 +39,15 @@ def init_db():
     seed_check = db.query("SELECT COUNT(*) AS cnt FROM medical_institutions")
     if seed_check and int(seed_check[0]["cnt"]) == 0:
         db.execute_script_file(SQL_DIR / "01_seed.sql")
+    ensure_demo_data()
 
 
 def require_doctor():
-    if session.get("role") != "doctor" or not session.get("doctor_id"):
-        return False
-    return True
+    return session.get("role") == "doctor" and bool(session.get("doctor_id"))
 
 
 def require_patient():
-    if session.get("role") != "patient" or not session.get("patient_id"):
-        return False
-    return True
+    return session.get("role") == "patient" and bool(session.get("patient_id"))
 
 
 def parse_dt(value):
@@ -58,14 +56,207 @@ def parse_dt(value):
     return datetime.fromisoformat(value)
 
 
-def next_encounter_id():
-    rows = db.query(SELECTS["NEXT_ENCOUNTER_ID"])
+def parse_int(value):
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def next_id(select_name):
+    rows = db.query(SELECTS[select_name])
     return int(rows[0]["id"])
 
 
-def next_treatment_id():
-    rows = db.query(SELECTS["NEXT_TREATMENT_ID"])
-    return int(rows[0]["id"])
+def doctor_nav():
+    return [
+        (url_for("doctor_my_patients"), "Мои пациенты"),
+        (url_for("doctor_create_encounter"), "Новый прием"),
+        (url_for("logout"), "Выход"),
+    ]
+
+
+def patient_nav():
+    return [
+        (url_for("patient_encounters"), "Мои приемы"),
+        (url_for("patient_treatments"), "Мои назначения"),
+        (url_for("logout"), "Выход"),
+    ]
+
+
+def render_doctor(template_name, **context):
+    return render_template(template_name, nav_links=doctor_nav(), **context)
+
+
+def render_patient(template_name, **context):
+    return render_template(template_name, nav_links=patient_nav(), **context)
+
+
+def get_patient(patient_id):
+    rows = db.query(SELECTS["PATIENT_BY_ID"], [patient_id])
+    return rows[0] if rows else None
+
+
+def get_beds():
+    return db.query(SELECTS["BEDS_LIST"])
+
+
+def get_procedures():
+    return db.query(SELECTS["PROCEDURES_LIST"])
+
+
+def get_medications():
+    return db.query(SELECTS["MEDICATIONS_LIST"])
+
+
+def get_doctor_encounter(encounter_id):
+    rows = db.query(SELECTS["DOCTOR_ENCOUNTER_BY_ID"], [encounter_id, session["doctor_id"]])
+    return rows[0] if rows else None
+
+
+def get_doctor_patient_or_404(patient_id):
+    can_view = db.query(SELECTS["DOCTOR_CAN_VIEW_PATIENT"], [session["doctor_id"], patient_id])
+    if not can_view:
+        abort(403)
+    patient = get_patient(patient_id)
+    if not patient:
+        abort(404)
+    return patient
+
+
+def get_doctor_encounter_or_404(encounter_id):
+    encounter = get_doctor_encounter(encounter_id)
+    if not encounter:
+        abort(404)
+    return encounter
+
+
+def build_encounter_form_data(form, default_patient_id=None):
+    return {
+        "patient_id": form.get("patient_id", str(default_patient_id or "")).strip(),
+        "bed_id": form.get("bed_id", "").strip(),
+        "type": form.get("type", "").strip(),
+        "start_datetime": form.get("start_datetime", "").strip(),
+        "end_datetime": form.get("end_datetime", "").strip(),
+    }
+
+
+def build_diagnosis_form_data(form):
+    diagnosed_at = form.get("diagnosed_at", "").strip()
+    return {
+        "icd10_code": form.get("icd10_code", "").strip(),
+        "diagnosis_type": form.get("diagnosis_type", "").strip(),
+        "diagnosed_at": diagnosed_at,
+        "notes": form.get("notes", "").strip(),
+    }
+
+
+def build_treatment_form_data(form):
+    return {
+        "assignment_kind": form.get("assignment_kind", "procedure").strip() or "procedure",
+        "procedure_id": form.get("procedure_id", "").strip(),
+        "medication_id": form.get("medication_id", "").strip(),
+        "start_date": form.get("start_date", "").strip(),
+        "end_date": form.get("end_date", "").strip(),
+        "frequency": form.get("frequency", "").strip(),
+        "type": form.get("type", "").strip(),
+        "note": form.get("note", "").strip(),
+    }
+
+
+def validate_encounter_form(form_data, current_encounter=None):
+    patient_id = parse_int(form_data["patient_id"])
+    bed_id = parse_int(form_data["bed_id"])
+    try:
+        start_dt = parse_dt(form_data["start_datetime"])
+        end_dt = parse_dt(form_data["end_datetime"])
+    except ValueError:
+        start_dt = None
+        end_dt = None
+    if not patient_id:
+        return "Пациент не найден", None
+    patient = get_patient(patient_id)
+    if not patient:
+        return "Пациент не найден", None
+    if current_encounter and current_encounter["patient_id"] != patient_id:
+        return "Нельзя менять пациента у существующего приема", None
+    if form_data["bed_id"] and not bed_id:
+        return "Выберите корректную койку", None
+    if bed_id and not db.query(SELECTS["BED_EXISTS"], [bed_id]):
+        return "Койка не найдена", None
+    if not form_data["type"]:
+        return "Заполните тип приема", None
+    if not start_dt or not end_dt:
+        return "Проверьте даты приема", None
+    if start_dt > end_dt:
+        return "Дата начала должна быть раньше даты окончания", None
+    return "", {
+        "patient": patient,
+        "patient_id": patient_id,
+        "bed_id": bed_id,
+        "type": form_data["type"],
+        "start_datetime": start_dt,
+        "end_datetime": end_dt,
+    }
+
+
+def validate_diagnosis_form(form_data):
+    try:
+        diagnosed_at = parse_dt(form_data["diagnosed_at"])
+    except ValueError:
+        diagnosed_at = None
+    if not form_data["icd10_code"]:
+        return "Укажите код МКБ-10", None
+    if not form_data["diagnosis_type"]:
+        return "Укажите тип диагноза", None
+    if not diagnosed_at:
+        return "Укажите корректные дату и время постановки диагноза", None
+    if not form_data["notes"]:
+        return "Укажите описание диагноза", None
+    return "", {
+        "icd10_code": form_data["icd10_code"],
+        "diagnosis_type": form_data["diagnosis_type"],
+        "diagnosed_at": diagnosed_at,
+        "notes": form_data["notes"],
+    }
+
+
+def validate_treatment_form(form_data):
+    procedure_id = parse_int(form_data["procedure_id"])
+    medication_id = parse_int(form_data["medication_id"])
+    is_procedure = form_data["assignment_kind"] == "procedure"
+    selected_count = int(bool(procedure_id)) + int(bool(medication_id))
+    if selected_count != 1:
+        return "Нужно выбрать ровно один вариант: процедуру или лекарство", None
+    if is_procedure and not procedure_id:
+        return "Выберите процедуру", None
+    if not is_procedure and not medication_id:
+        return "Выберите лекарство", None
+    if procedure_id and not db.query(SELECTS["PROCEDURE_EXISTS"], [procedure_id]):
+        return "Процедура не найдена", None
+    if medication_id and not db.query(SELECTS["MEDICATION_EXISTS"], [medication_id]):
+        return "Лекарство не найдено", None
+    if not form_data["start_date"] or not form_data["end_date"]:
+        return "Укажите даты назначения", None
+    if form_data["start_date"] > form_data["end_date"]:
+        return "Дата начала должна быть раньше даты окончания", None
+    if not form_data["frequency"]:
+        return "Укажите частоту", None
+    if not form_data["type"]:
+        return "Укажите тип назначения", None
+    if not form_data["note"]:
+        return "Укажите примечание", None
+    return "", {
+        "procedure_id": procedure_id if is_procedure else None,
+        "medication_id": medication_id if not is_procedure else None,
+        "start_date": form_data["start_date"],
+        "end_date": form_data["end_date"],
+        "frequency": form_data["frequency"],
+        "type": form_data["type"],
+        "note": form_data["note"],
+    }
 
 
 @app.route("/")
@@ -93,138 +284,26 @@ def login():
         if role not in {"doctor", "patient"}:
             error = "Выберите роль"
         else:
-            try:
-                user_id = int(user_id_raw)
-            except ValueError:
+            user_id = parse_int(user_id_raw)
+            if user_id is None:
                 error = "ID должен быть числом"
-                user_id = None
-            if user_id is not None:
-                if role == "doctor":
-                    exists = db.query(SELECTS["AUTH_DOCTOR_EXISTS"], [user_id])
-                    if exists:
-                        session.clear()
-                        session["role"] = "doctor"
-                        session["doctor_id"] = user_id
-                        return redirect(url_for("doctor_my_patients"))
-                    error = "Врач не найден"
-                if role == "patient":
-                    exists = db.query(SELECTS["AUTH_PATIENT_EXISTS"], [user_id])
-                    if exists:
-                        session.clear()
-                        session["role"] = "patient"
-                        session["patient_id"] = user_id
-                        return redirect(url_for("patient_encounters"))
-                    error = "Пациент не найден"
-    return render_template("login.html", error=error)
-
-
-@app.route("/doctor/create_encounter", methods=["GET", "POST"])
-def doctor_create_encounter():
-    if not require_doctor():
-        abort(403)
-    error = ""
-    success = ""
-    if request.method == "POST":
-        patient_id_raw = request.form.get("patient_id", "").strip()
-        bed_id_raw = request.form.get("bed_id", "").strip()
-        encounter_type = request.form.get("type", "").strip()
-        start_raw = request.form.get("start_datetime", "").strip()
-        end_raw = request.form.get("end_datetime", "").strip()
-        try:
-            patient_id = int(patient_id_raw)
-        except ValueError:
-            patient_id = None
-        bed_id = None
-        if bed_id_raw:
-            try:
-                bed_id = int(bed_id_raw)
-            except ValueError:
-                bed_id = None
-        try:
-            start_dt = parse_dt(start_raw)
-            end_dt = parse_dt(end_raw)
-        except ValueError:
-            start_dt = None
-            end_dt = None
-        if not patient_id:
-            error = "Некорректный patient_id"
-        elif not encounter_type:
-            error = "Заполните type"
-        elif not start_dt or not end_dt:
-            error = "Некорректные даты"
-        elif start_dt > end_dt:
-            error = "start_datetime должен быть <= end_datetime"
-        else:
-            patient_exists = db.query(SELECTS["PATIENT_EXISTS"], [patient_id])
-            if not patient_exists:
+            elif role == "doctor":
+                exists = db.query(SELECTS["AUTH_DOCTOR_EXISTS"], [user_id])
+                if exists:
+                    session.clear()
+                    session["role"] = "doctor"
+                    session["doctor_id"] = user_id
+                    return redirect(url_for("doctor_my_patients"))
+                error = "Врач не найден"
+            elif role == "patient":
+                exists = db.query(SELECTS["AUTH_PATIENT_EXISTS"], [user_id])
+                if exists:
+                    session.clear()
+                    session["role"] = "patient"
+                    session["patient_id"] = user_id
+                    return redirect(url_for("patient_encounters"))
                 error = "Пациент не найден"
-            elif bed_id_raw and not db.query(SELECTS["BED_EXISTS"], [bed_id]):
-                error = "Койка не найдена"
-            else:
-                new_id = next_encounter_id()
-                db.execute(
-                    "INSERT INTO encounters(id, patient_id, doctor_id, bed_id, type, start_datetime, end_datetime) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                    [new_id, patient_id, session["doctor_id"], bed_id, encounter_type, start_dt, end_dt],
-                )
-                success = f"Прием создан, id={new_id}"
-    return render_template("doctor_create_encounter.html", error=error, success=success)
-
-
-@app.route("/doctor/edit_encounter/<int:encounter_id>", methods=["GET", "POST"])
-def doctor_edit_encounter(encounter_id):
-    if not require_doctor():
-        abort(403)
-    own = db.query(SELECTS["DOCTOR_OWN_ENCOUNTER_BY_ID"], [encounter_id, session["doctor_id"]])
-    if not own:
-        abort(404)
-    row = own[0]
-    error = ""
-    success = ""
-    if request.method == "POST":
-        patient_id_raw = request.form.get("patient_id", "").strip()
-        bed_id_raw = request.form.get("bed_id", "").strip()
-        encounter_type = request.form.get("type", "").strip()
-        start_raw = request.form.get("start_datetime", "").strip()
-        end_raw = request.form.get("end_datetime", "").strip()
-        try:
-            patient_id = int(patient_id_raw)
-        except ValueError:
-            patient_id = None
-        bed_id = None
-        if bed_id_raw:
-            try:
-                bed_id = int(bed_id_raw)
-            except ValueError:
-                bed_id = None
-        try:
-            start_dt = parse_dt(start_raw)
-            end_dt = parse_dt(end_raw)
-        except ValueError:
-            start_dt = None
-            end_dt = None
-        if not patient_id:
-            error = "Некорректный patient_id"
-        elif not encounter_type:
-            error = "Заполните type"
-        elif not start_dt or not end_dt:
-            error = "Некорректные даты"
-        elif start_dt > end_dt:
-            error = "start_datetime должен быть <= end_datetime"
-        else:
-            patient_exists = db.query(SELECTS["PATIENT_EXISTS"], [patient_id])
-            if not patient_exists:
-                error = "Пациент не найден"
-            elif bed_id_raw and not db.query(SELECTS["BED_EXISTS"], [bed_id]):
-                error = "Койка не найдена"
-            else:
-                db.execute(
-                    "UPDATE encounters SET patient_id=%s, bed_id=%s, type=%s, start_datetime=%s, end_datetime=%s WHERE id=%s AND doctor_id=%s",
-                    [patient_id, bed_id, encounter_type, start_dt, end_dt, encounter_id, session["doctor_id"]],
-                )
-                success = "Прием обновлен"
-                own = db.query(SELECTS["DOCTOR_OWN_ENCOUNTER_BY_ID"], [encounter_id, session["doctor_id"]])
-                row = own[0]
-    return render_template("doctor_edit_encounter.html", encounter=row, error=error, success=success)
+    return render_template("login.html", error=error, nav_links=[])
 
 
 @app.route("/doctor/my_patients")
@@ -233,90 +312,210 @@ def doctor_my_patients():
         abort(403)
     name_q = request.args.get("name", "").strip()
     patient_id_raw = request.args.get("patient_id", "").strip()
-    patient_id = None
-    if patient_id_raw:
-        try:
-            patient_id = int(patient_id_raw)
-        except ValueError:
-            patient_id = None
+    patient_id = parse_int(patient_id_raw)
     rows = db.query(
         SELECTS["DOCTOR_PATIENTS_SEARCH"],
-        [
-            session["doctor_id"],
-            patient_id,
-            patient_id,
-            name_q,
-            f"%{name_q}%",
-        ],
+        [session["doctor_id"], patient_id, patient_id, name_q, f"%{name_q}%"],
     )
-    return render_template("doctor_my_patients.html", patients=rows, name=name_q, patient_id=patient_id_raw)
-
-
-@app.route("/doctor/add_treatment/<int:encounter_id>", methods=["GET", "POST"])
-def doctor_add_treatment(encounter_id):
-    if not require_doctor():
-        abort(403)
-    own = db.query(SELECTS["DOCTOR_OWNS_ENCOUNTER"], [encounter_id, session["doctor_id"]])
-    if not own:
-        abort(404)
-    error = ""
-    success = ""
-    if request.method == "POST":
-        procedure_id_raw = request.form.get("procedure_id", "").strip()
-        medication_id_raw = request.form.get("medication_id", "").strip()
-        start_date = request.form.get("start_date", "").strip()
-        end_date = request.form.get("end_date", "").strip()
-        frequency = request.form.get("frequency", "").strip()
-        item_type = request.form.get("type", "").strip()
-        note = request.form.get("note", "").strip()
-        procedure_id = None
-        medication_id = None
-        if procedure_id_raw:
-            try:
-                procedure_id = int(procedure_id_raw)
-            except ValueError:
-                procedure_id = None
-        if medication_id_raw:
-            try:
-                medication_id = int(medication_id_raw)
-            except ValueError:
-                medication_id = None
-        xor_ok = (procedure_id is None) != (medication_id is None)
-        if not xor_ok:
-            error = "Укажите ровно одно значение: procedure_id или medication_id"
-        elif not start_date or not end_date:
-            error = "Заполните даты"
-        elif start_date > end_date:
-            error = "start_date должен быть <= end_date"
-        elif not frequency or not item_type or not note:
-            error = "Заполните frequency, type и note"
-        elif procedure_id is not None and not db.query(SELECTS["PROCEDURE_EXISTS"], [procedure_id]):
-            error = "Процедура не найдена"
-        elif medication_id is not None and not db.query(SELECTS["MEDICATION_EXISTS"], [medication_id]):
-            error = "Препарат не найден"
-        else:
-            new_id = next_treatment_id()
-            db.execute(
-                "INSERT INTO treatment_items(id, encounter_id, procedure_id, medication_id, start_date, end_date, frequency, type, note) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                [new_id, encounter_id, procedure_id, medication_id, start_date, end_date, frequency, item_type, note],
-            )
-            success = f"Назначение создано, id={new_id}"
-    return render_template("doctor_add_treatment.html", encounter_id=encounter_id, error=error, success=success)
+    return render_doctor(
+        "doctor_my_patients.html",
+        title="Мои пациенты",
+        patients=rows,
+        name=name_q,
+        patient_id=patient_id_raw,
+    )
 
 
 @app.route("/doctor/patient/<int:patient_id>")
 def doctor_patient(patient_id):
     if not require_doctor():
         abort(403)
-    can_view = db.query(SELECTS["DOCTOR_CAN_VIEW_PATIENT"], [session["doctor_id"], patient_id])
-    if not can_view:
-        abort(403)
-    patient_rows = db.query(SELECTS["PATIENT_BY_ID"], [patient_id])
-    if not patient_rows:
-        abort(404)
+    patient = get_doctor_patient_or_404(patient_id)
     encounters = db.query(SELECTS["DOCTOR_PATIENT_ENCOUNTERS"], [session["doctor_id"], patient_id])
+    diagnoses = db.query(SELECTS["DOCTOR_PATIENT_DIAGNOSES"], [session["doctor_id"], patient_id])
     treatments = db.query(SELECTS["DOCTOR_PATIENT_TREATMENTS"], [session["doctor_id"], patient_id])
-    return render_template("doctor_patient.html", patient=patient_rows[0], encounters=encounters, treatments=treatments)
+    return render_doctor(
+        "doctor_patient.html",
+        title=f"Пациент {patient['name']}",
+        patient=patient,
+        encounters=encounters,
+        diagnoses=diagnoses,
+        treatments=treatments,
+    )
+
+
+@app.route("/doctor/create_encounter", methods=["GET", "POST"])
+def doctor_create_encounter():
+    if not require_doctor():
+        abort(403)
+    patient_id_raw = request.args.get("patient_id", "").strip()
+    patient_id = parse_int(patient_id_raw)
+    patient = get_patient(patient_id) if patient_id else None
+    form_data = build_encounter_form_data(request.form if request.method == "POST" else request.args, patient_id)
+    error = ""
+    if request.method == "POST":
+        error, cleaned = validate_encounter_form(form_data)
+        if not error:
+            new_id = next_id("NEXT_ENCOUNTER_ID")
+            db.execute(
+                "INSERT INTO encounters(id, patient_id, doctor_id, bed_id, type, start_datetime, end_datetime) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                [
+                    new_id,
+                    cleaned["patient_id"],
+                    session["doctor_id"],
+                    cleaned["bed_id"],
+                    cleaned["type"],
+                    cleaned["start_datetime"],
+                    cleaned["end_datetime"],
+                ],
+            )
+            flash(f"Прием #{new_id} создан")
+            return redirect(url_for("doctor_patient", patient_id=cleaned["patient_id"]))
+    return render_doctor(
+        "doctor_create_encounter.html",
+        title="Новый прием",
+        error=error,
+        form_data=form_data,
+        patient=patient,
+        beds=get_beds(),
+    )
+
+
+@app.route("/doctor/edit_encounter/<int:encounter_id>", methods=["GET", "POST"])
+def doctor_edit_encounter(encounter_id):
+    if not require_doctor():
+        abort(403)
+    encounter = get_doctor_encounter_or_404(encounter_id)
+    patient = get_doctor_patient_or_404(encounter["patient_id"])
+    if request.method == "POST":
+        form_data = build_encounter_form_data(request.form, encounter["patient_id"])
+        error, cleaned = validate_encounter_form(form_data, encounter)
+        if not error:
+            db.execute(
+                "UPDATE encounters SET bed_id=%s, type=%s, start_datetime=%s, end_datetime=%s WHERE id=%s AND doctor_id=%s",
+                [
+                    cleaned["bed_id"],
+                    cleaned["type"],
+                    cleaned["start_datetime"],
+                    cleaned["end_datetime"],
+                    encounter_id,
+                    session["doctor_id"],
+                ],
+            )
+            flash(f"Прием #{encounter_id} обновлен")
+            return redirect(url_for("doctor_patient", patient_id=encounter["patient_id"]))
+    else:
+        error = ""
+        form_data = {
+            "patient_id": str(encounter["patient_id"]),
+            "bed_id": "" if encounter["bed_id"] is None else str(encounter["bed_id"]),
+            "type": encounter["type"],
+            "start_datetime": encounter["start_datetime"].strftime("%Y-%m-%dT%H:%M"),
+            "end_datetime": encounter["end_datetime"].strftime("%Y-%m-%dT%H:%M"),
+        }
+    return render_doctor(
+        "doctor_edit_encounter.html",
+        title=f"Прием {encounter_id}",
+        encounter=encounter,
+        patient=patient,
+        error=error,
+        form_data=form_data,
+        beds=get_beds(),
+    )
+
+
+@app.route("/doctor/add_diagnosis/<int:encounter_id>", methods=["GET", "POST"])
+def doctor_add_diagnosis(encounter_id):
+    if not require_doctor():
+        abort(403)
+    encounter = get_doctor_encounter_or_404(encounter_id)
+    patient = get_doctor_patient_or_404(encounter["patient_id"])
+    if request.method == "POST":
+        form_data = build_diagnosis_form_data(request.form)
+        error, cleaned = validate_diagnosis_form(form_data)
+        if not error:
+            new_id = next_id("NEXT_DIAGNOSIS_ID")
+            db.execute(
+                "INSERT INTO diagnoses(id, patient_id, encounter_id, icd10_code, diagnosis_type, diagnosed_at, notes) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                [
+                    new_id,
+                    patient["id"],
+                    encounter_id,
+                    cleaned["icd10_code"],
+                    cleaned["diagnosis_type"],
+                    cleaned["diagnosed_at"],
+                    cleaned["notes"],
+                ],
+            )
+            flash(f"Диагноз #{new_id} добавлен")
+            return redirect(url_for("doctor_patient", patient_id=patient["id"]))
+    else:
+        error = ""
+        form_data = {
+            "icd10_code": "",
+            "diagnosis_type": "",
+            "diagnosed_at": encounter["start_datetime"].strftime("%Y-%m-%dT%H:%M"),
+            "notes": "",
+        }
+    return render_doctor(
+        "doctor_add_diagnosis.html",
+        title="Новый диагноз",
+        encounter=encounter,
+        patient=patient,
+        error=error,
+        form_data=form_data,
+    )
+
+
+@app.route("/doctor/add_treatment/<int:encounter_id>", methods=["GET", "POST"])
+def doctor_add_treatment(encounter_id):
+    if not require_doctor():
+        abort(403)
+    encounter = get_doctor_encounter_or_404(encounter_id)
+    patient = get_doctor_patient_or_404(encounter["patient_id"])
+    if request.method == "POST":
+        form_data = build_treatment_form_data(request.form)
+        error, cleaned = validate_treatment_form(form_data)
+        if not error:
+            new_id = next_id("NEXT_TREATMENT_ID")
+            db.execute(
+                "INSERT INTO treatment_items(id, encounter_id, procedure_id, medication_id, start_date, end_date, frequency, type, note) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                [
+                    new_id,
+                    encounter_id,
+                    cleaned["procedure_id"],
+                    cleaned["medication_id"],
+                    cleaned["start_date"],
+                    cleaned["end_date"],
+                    cleaned["frequency"],
+                    cleaned["type"],
+                    cleaned["note"],
+                ],
+            )
+            flash(f"Назначение #{new_id} добавлено")
+            return redirect(url_for("doctor_patient", patient_id=patient["id"]))
+    else:
+        error = ""
+        form_data = {
+            "assignment_kind": "procedure",
+            "procedure_id": "",
+            "medication_id": "",
+            "start_date": encounter["start_datetime"].date().isoformat(),
+            "end_date": encounter["end_datetime"].date().isoformat(),
+            "frequency": "",
+            "type": "",
+            "note": "",
+        }
+    return render_doctor(
+        "doctor_add_treatment.html",
+        title="Новое назначение",
+        encounter=encounter,
+        patient=patient,
+        error=error,
+        form_data=form_data,
+        procedures=get_procedures(),
+        medications=get_medications(),
+    )
 
 
 @app.route("/patient/encounters")
@@ -324,7 +523,7 @@ def patient_encounters():
     if not require_patient():
         abort(403)
     rows = db.query(SELECTS["PATIENT_ENCOUNTERS"], [session["patient_id"]])
-    return render_template("patient_encounters.html", encounters=rows)
+    return render_patient("patient_encounters.html", title="Мои приемы", encounters=rows)
 
 
 @app.route("/patient/treatments")
@@ -332,7 +531,7 @@ def patient_treatments():
     if not require_patient():
         abort(403)
     rows = db.query(SELECTS["PATIENT_TREATMENTS"], [session["patient_id"]])
-    return render_template("patient_treatments.html", treatments=rows)
+    return render_patient("patient_treatments.html", title="Мои назначения", treatments=rows)
 
 
 init_db()

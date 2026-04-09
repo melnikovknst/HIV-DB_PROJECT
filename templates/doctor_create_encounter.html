@@ -1,38 +1,59 @@
 {% extends "base.html" %}
 {% block content %}
-  <h1>Создать прием</h1>
-  <p class="muted">Заполните форму приема пациента</p>
-  {% if error %}
-  <div class="alert">{{ error }}</div>
-  {% endif %}
-  {% if success %}
-  <div class="alert">{{ success }}</div>
-  {% endif %}
-  <form method="post">
-    <div class="grid">
-      <div class="field">
-        <label>patient_id</label>
-        <input type="number" name="patient_id" required>
+  <div class="card stack">
+    <div class="section-head">
+      <div>
+        <h1>Создать прием</h1>
+        <p class="muted">Пациент подставляется из контекста карточки, если переход выполнен оттуда.</p>
       </div>
-      <div class="field">
-        <label>bed_id</label>
-        <input type="number" name="bed_id">
-      </div>
-      <div class="field">
-        <label>type</label>
-        <input type="text" name="type" required>
-      </div>
-      <div class="field">
-        <label>start_datetime</label>
-        <input type="datetime-local" name="start_datetime" required>
-      </div>
-      <div class="field">
-        <label>end_datetime</label>
-        <input type="datetime-local" name="end_datetime" required>
+      <div class="actions">
+        {% if patient %}
+          <a class="btn ghost" href="{{ url_for('doctor_patient', patient_id=patient.id) }}">Назад к пациенту</a>
+        {% else %}
+          <a class="btn ghost" href="{{ url_for('doctor_my_patients') }}">Назад к пациентам</a>
+        {% endif %}
       </div>
     </div>
-    <div class="actions">
-      <button class="btn" type="submit">Создать</button>
-    </div>
-  </form>
+    {% if error %}
+      <div class="alert">{{ error }}</div>
+    {% endif %}
+    <form method="post" class="stack">
+      <div class="grid">
+        <div class="field">
+          <label>ID пациента</label>
+          <input type="number" name="patient_id" value="{{ form_data.patient_id }}" {% if patient %}readonly{% endif %} required>
+        </div>
+        <div class="field">
+          <label>Пациент</label>
+          <input type="text" value="{{ patient.name if patient else 'Введите ID пациента' }}" readonly>
+        </div>
+        <div class="field">
+          <label>Тип приема</label>
+          <input type="text" name="type" value="{{ form_data.type }}" placeholder="inpatient / outpatient / consultation" required>
+        </div>
+        <div class="field">
+          <label>Койка</label>
+          <select name="bed_id">
+            <option value="">Без койки</option>
+            {% for bed in beds %}
+              <option value="{{ bed.id }}" {% if form_data.bed_id == bed.id|string %}selected{% endif %}>
+                Койка {{ bed.id }} | {{ bed.department_name }} | {{ bed.status }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>Начало приема</label>
+          <input type="datetime-local" name="start_datetime" value="{{ form_data.start_datetime }}" required>
+        </div>
+        <div class="field">
+          <label>Окончание приема</label>
+          <input type="datetime-local" name="end_datetime" value="{{ form_data.end_datetime }}" required>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn" type="submit">Сохранить прием</button>
+      </div>
+    </form>
+  </div>
 {% endblock %}

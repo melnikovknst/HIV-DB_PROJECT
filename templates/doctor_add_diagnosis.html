@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card stack">
+    <div class="section-head">
+      <div>
+        <h1>Добавить диагноз</h1>
+        <p class="muted">Прием #{{ encounter.id }} | Пациент: {{ patient.name }}</p>
+      </div>
+      <div class="actions">
+        <a class="btn ghost" href="{{ url_for('doctor_patient', patient_id=patient.id) }}">Назад к пациенту</a>
+      </div>
+    </div>
+    {% if error %}
+      <div class="alert">{{ error }}</div>
+    {% endif %}
+    <form method="post" class="stack">
+      <div class="grid">
+        <div class="field">
+          <label>Код МКБ-10</label>
+          <input type="text" name="icd10_code" value="{{ form_data.icd10_code }}" required>
+        </div>
+        <div class="field">
+          <label>Тип диагноза</label>
+          <input type="text" name="diagnosis_type" value="{{ form_data.diagnosis_type }}" placeholder="primary / secondary / followup" required>
+        </div>
+        <div class="field">
+          <label>Дата и время</label>
+          <input type="datetime-local" name="diagnosed_at" value="{{ form_data.diagnosed_at }}" required>
+        </div>
+      </div>
+      <div class="field">
+        <label>Описание</label>
+        <textarea name="notes" required>{{ form_data.notes }}</textarea>
+      </div>
+      <div class="actions">
+        <button class="btn" type="submit">Сохранить диагноз</button>
+      </div>
+    </form>
+  </div>
+{% endblock %}

@@ -3,59 +3,95 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ title }}</title>
+  <title>{{ title or 'HIV Clinic' }}</title>
   <style>
     :root {
-      --bg: #f6f1ea;
+      --bg: #f4efe8;
       --card: #ffffff;
-      --ink: #1f1a17;
-      --muted: #6f645c;
-      --accent: #c85f2e;
-      --accent-2: #2f5d62;
-      --border: #e5ddd4;
+      --ink: #1c1a18;
+      --muted: #6b625b;
+      --accent: #b4532a;
+      --accent-soft: #f5e3da;
+      --line: #e4dbd3;
+      --good: #eff8f1;
+      --good-line: #b8d8bf;
+      --bad: #fff1ee;
+      --bad-line: #efc1b7;
+      --shadow: 0 18px 40px rgba(54, 41, 31, 0.08);
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: "Georgia", "Times New Roman", serif;
       color: var(--ink);
-      background: radial-gradient(1200px 500px at 20% -10%, #ffe8d6 0, transparent 60%),
-                  radial-gradient(800px 400px at 90% 10%, #e1efe6 0, transparent 60%),
-                  var(--bg);
+      background:
+        radial-gradient(900px 460px at 0% -10%, #ffe7d7 0, transparent 60%),
+        radial-gradient(760px 380px at 100% 0%, #edf5ef 0, transparent 55%),
+        linear-gradient(180deg, #f8f4ef 0%, var(--bg) 100%);
     }
+    a { color: inherit; }
     .wrap {
-      max-width: 980px;
-      margin: 36px auto 80px;
-      padding: 0 18px;
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 28px 18px 64px;
     }
-    header {
+    .topbar {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 24px;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
     }
     .brand {
       font-size: 28px;
       font-weight: 700;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.04em;
+    }
+    .nav {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
     }
     .nav a {
       text-decoration: none;
-      color: var(--accent-2);
-      margin-right: 14px;
+      color: var(--muted);
       font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid transparent;
     }
-    .nav a:last-child { margin-right: 0; }
+    .nav a:hover {
+      border-color: var(--line);
+      background: rgba(255, 255, 255, 0.72);
+    }
+    .page {
+      display: grid;
+      gap: 18px;
+    }
     .card {
       background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
       padding: 22px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+      box-shadow: var(--shadow);
     }
-    h1, h2 {
-      margin: 0 0 16px;
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    h1, h2, h3 {
+      margin: 0;
+      line-height: 1.2;
+    }
+    h1 { font-size: 32px; }
+    h2 { font-size: 22px; }
+    h3 { font-size: 18px; }
+    p {
+      margin: 0;
+      line-height: 1.45;
     }
     .muted { color: var(--muted); }
     .grid {
@@ -65,75 +101,129 @@
     }
     .field label {
       display: block;
+      margin-bottom: 6px;
       font-size: 14px;
       color: var(--muted);
-      margin-bottom: 6px;
     }
-    .field input, .field select {
+    .field input,
+    .field select,
+    .field textarea {
       width: 100%;
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      font-size: 16px;
-      background: #fffdfb;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      font: inherit;
+      color: var(--ink);
+      background: #fffdfa;
+    }
+    .field textarea {
+      min-height: 120px;
+      resize: vertical;
     }
     .actions {
-      margin-top: 14px;
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
     }
     .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
       padding: 10px 16px;
       border-radius: 999px;
       border: 1px solid var(--accent);
       background: var(--accent);
-      color: white;
-      font-weight: 600;
-      text-decoration: none;
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
       cursor: pointer;
     }
     .btn.ghost {
       background: transparent;
       color: var(--accent);
     }
+    .btn.small {
+      padding: 8px 12px;
+      font-size: 14px;
+      font-weight: 600;
+    }
     .alert {
-      margin: 12px 0;
-      padding: 10px 12px;
-      border-radius: 10px;
-      background: #fff1eb;
-      border: 1px solid #f2c5b5;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--bad-line);
+      background: var(--bad);
+    }
+    .alert.success {
+      border-color: var(--good-line);
+      background: var(--good);
+    }
+    .flash-stack {
+      display: grid;
+      gap: 10px;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .summary-item {
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #fcfaf7;
+    }
+    .summary-label {
+      margin-bottom: 6px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 8px;
     }
     th, td {
-      padding: 10px 8px;
-      border-bottom: 1px solid var(--border);
-      text-align: left;
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
       vertical-align: top;
+      text-align: left;
     }
-    th { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 0.4px; }
-    .chips { display: flex; gap: 6px; flex-wrap: wrap; }
-    .chip {
-      background: #f0ebe6;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 4px 10px;
+    th {
       font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
       color: var(--muted);
     }
-    @media (max-width: 640px) {
-      header { flex-direction: column; align-items: flex-start; }
-      .brand { font-size: 24px; }
+    .table-wrap {
+      overflow-x: auto;
+    }
+    .empty {
+      padding: 16px;
+      border: 1px dashed var(--line);
+      border-radius: 14px;
+      color: var(--muted);
+      background: #fcfaf7;
+    }
+    .stack {
+      display: grid;
+      gap: 18px;
+    }
+    @media (max-width: 720px) {
+      .wrap { padding-top: 20px; }
+      .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      h1 { font-size: 28px; }
+      .card { padding: 18px; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <header>
+    <div class="topbar">
       <div class="brand">HIV Clinic</div>
       <div class="nav">
         {% if nav_links %}
@@ -142,8 +232,17 @@
           {% endfor %}
         {% endif %}
       </div>
-    </header>
-    <div class="card">
+    </div>
+    <div class="page">
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="flash-stack">
+            {% for message in messages %}
+              <div class="alert success">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
       {% block content %}{% endblock %}
     </div>
   </div>

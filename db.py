@@ -35,6 +35,16 @@ def execute(sql_text, params=None):
         conn.close()
 
 
+def execute_many(sql_text, seq_of_params):
+    conn = connect()
+    try:
+        with conn.cursor() as cur:
+            cur.executemany(sql_text, seq_of_params)
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def execute_script_file(path):
     script_path = Path(path)
     sql_text = script_path.read_text(encoding="utf-8")

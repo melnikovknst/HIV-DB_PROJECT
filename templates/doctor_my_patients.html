@@ -1,40 +1,74 @@
 {% extends "base.html" %}
 {% block content %}
-  <h1>Мои пациенты</h1>
-  <form method="get">
-    <div class="grid">
-      <div class="field">
-        <label>Поиск по имени</label>
-        <input type="text" name="name" value="{{ name }}">
+  <div class="card stack">
+    <div class="section-head">
+      <div>
+        <h1>Мои пациенты</h1>
+        <p class="muted">Список пациентов, у которых уже есть приемы у текущего врача.</p>
       </div>
-      <div class="field">
-        <label>Поиск по patient_id</label>
-        <input type="number" name="patient_id" value="{{ patient_id }}">
+      <div class="actions">
+        <a class="btn" href="{{ url_for('doctor_create_encounter') }}">Создать прием</a>
       </div>
     </div>
-    <div class="actions">
-      <button class="btn" type="submit">Найти</button>
-      <a class="btn ghost" href="{{ url_for('doctor_create_encounter') }}">Создать прием</a>
+    <form method="get" class="stack">
+      <div class="grid">
+        <div class="field">
+          <label>Поиск по имени</label>
+          <input type="text" name="name" value="{{ name }}">
+        </div>
+        <div class="field">
+          <label>ID пациента</label>
+          <input type="number" name="patient_id" value="{{ patient_id }}">
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn" type="submit">Найти</button>
+        <a class="btn ghost" href="{{ url_for('doctor_my_patients') }}">Сбросить</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="card stack">
+    <div class="section-head">
+      <div>
+        <h2>Пациенты</h2>
+        <p class="muted">Найдено: {{ patients|length }}</p>
+      </div>
     </div>
-  </form>
-  <table>
-    <tr>
-      <th>ID</th>
-      <th>Имя</th>
-      <th>Пол</th>
-      <th>Телефон</th>
-      <th>Email</th>
-      <th>Профиль</th>
-    </tr>
-    {% for p in patients %}
-    <tr>
-      <td>{{ p.id }}</td>
-      <td>{{ p.name }}</td>
-      <td>{{ p.sex }}</td>
-      <td>{{ p.phone }}</td>
-      <td>{{ p.email }}</td>
-      <td><a class="btn ghost" href="{{ url_for('doctor_patient', patient_id=p.id) }}">Открыть</a></td>
-    </tr>
-    {% endfor %}
-  </table>
+    {% if patients %}
+      <div class="table-wrap">
+        <table>
+          <tr>
+            <th>ID</th>
+            <th>Пациент</th>
+            <th>Контакты</th>
+            <th>Документы</th>
+            <th></th>
+          </tr>
+          {% for p in patients %}
+            <tr>
+              <td>{{ p.id }}</td>
+              <td>
+                <strong>{{ p.name }}</strong><br>
+                <span class="muted">Пол: {{ p.sex }} | Дата рождения: {{ p.birth_date }}</span>
+              </td>
+              <td>
+                {{ p.phone }}<br>
+                <span class="muted">{{ p.email }}</span>
+              </td>
+              <td>
+                SNUS: {{ p.snus }}<br>
+                <span class="muted">Паспорт: {{ p.passport }}</span>
+              </td>
+              <td>
+                <a class="btn ghost small" href="{{ url_for('doctor_patient', patient_id=p.id) }}">Открыть карточку</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">Пациенты не найдены.</div>
+    {% endif %}
+  </div>
 {% endblock %}

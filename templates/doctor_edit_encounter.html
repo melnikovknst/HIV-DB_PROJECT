@@ -1,37 +1,55 @@
 {% extends "base.html" %}
 {% block content %}
-  <h1>Редактировать прием {{ encounter.id }}</h1>
-  {% if error %}
-  <div class="alert">{{ error }}</div>
-  {% endif %}
-  {% if success %}
-  <div class="alert">{{ success }}</div>
-  {% endif %}
-  <form method="post">
-    <div class="grid">
-      <div class="field">
-        <label>patient_id</label>
-        <input type="number" name="patient_id" value="{{ encounter.patient_id }}" required>
+  <div class="card stack">
+    <div class="section-head">
+      <div>
+        <h1>Редактировать прием #{{ encounter.id }}</h1>
+        <p class="muted">Изменять можно только свой прием. Пациент фиксирован текущим контекстом.</p>
       </div>
-      <div class="field">
-        <label>bed_id</label>
-        <input type="number" name="bed_id" value="{{ encounter.bed_id if encounter.bed_id is not none else '' }}">
-      </div>
-      <div class="field">
-        <label>type</label>
-        <input type="text" name="type" value="{{ encounter.type }}" required>
-      </div>
-      <div class="field">
-        <label>start_datetime</label>
-        <input type="datetime-local" name="start_datetime" value="{{ encounter.start_datetime.strftime('%Y-%m-%dT%H:%M') }}" required>
-      </div>
-      <div class="field">
-        <label>end_datetime</label>
-        <input type="datetime-local" name="end_datetime" value="{{ encounter.end_datetime.strftime('%Y-%m-%dT%H:%M') }}" required>
+      <div class="actions">
+        <a class="btn ghost" href="{{ url_for('doctor_patient', patient_id=patient.id) }}">Назад к пациенту</a>
       </div>
     </div>
-    <div class="actions">
-      <button class="btn" type="submit">Сохранить</button>
-    </div>
-  </form>
+    {% if error %}
+      <div class="alert">{{ error }}</div>
+    {% endif %}
+    <form method="post" class="stack">
+      <div class="grid">
+        <div class="field">
+          <label>ID пациента</label>
+          <input type="number" name="patient_id" value="{{ form_data.patient_id }}" readonly required>
+        </div>
+        <div class="field">
+          <label>Пациент</label>
+          <input type="text" value="{{ patient.name }}" readonly>
+        </div>
+        <div class="field">
+          <label>Тип приема</label>
+          <input type="text" name="type" value="{{ form_data.type }}" required>
+        </div>
+        <div class="field">
+          <label>Койка</label>
+          <select name="bed_id">
+            <option value="">Без койки</option>
+            {% for bed in beds %}
+              <option value="{{ bed.id }}" {% if form_data.bed_id == bed.id|string %}selected{% endif %}>
+                Койка {{ bed.id }} | {{ bed.department_name }} | {{ bed.status }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>Начало приема</label>
+          <input type="datetime-local" name="start_datetime" value="{{ form_data.start_datetime }}" required>
+        </div>
+        <div class="field">
+          <label>Окончание приема</label>
+          <input type="datetime-local" name="end_datetime" value="{{ form_data.end_datetime }}" required>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn" type="submit">Сохранить изменения</button>
+      </div>
+    </form>
+  </div>
 {% endblock %}

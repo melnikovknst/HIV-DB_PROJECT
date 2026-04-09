@@ -1,57 +1,165 @@
 {% extends "base.html" %}
 {% block content %}
-  <h1>Пациент {{ patient.name }} ({{ patient.id }})</h1>
-  <div class="actions">
-    <a class="btn ghost" href="{{ url_for('doctor_my_patients') }}">Назад</a>
-    <a class="btn" href="{{ url_for('doctor_create_encounter') }}">Создать прием</a>
+  <div class="card stack">
+    <div class="section-head">
+      <div>
+        <h1>{{ patient.name }}</h1>
+        <p class="muted">Карточка пациента врача. Доступны только приемы, диагнозы и назначения текущего врача.</p>
+      </div>
+      <div class="actions">
+        <a class="btn ghost" href="{{ url_for('doctor_my_patients') }}">Назад к пациентам</a>
+        <a class="btn" href="{{ url_for('doctor_create_encounter', patient_id=patient.id) }}">Новый прием</a>
+      </div>
+    </div>
+    <div class="summary-grid">
+      <div class="summary-item">
+        <div class="summary-label">ID пациента</div>
+        <div>{{ patient.id }}</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-label">Пол</div>
+        <div>{{ patient.sex }}</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-label">Дата рождения</div>
+        <div>{{ patient.birth_date }}</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-label">Телефон</div>
+        <div>{{ patient.phone }}</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-label">Email</div>
+        <div>{{ patient.email }}</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-label">Документы</div>
+        <div>SNUS: {{ patient.snus }}<br>Паспорт: {{ patient.passport }}</div>
+      </div>
+    </div>
   </div>
-  <h2>Приемы</h2>
-  <table>
-    <tr>
-      <th>ID</th>
-      <th>Тип</th>
-      <th>Начало</th>
-      <th>Окончание</th>
-      <th>bed_id</th>
-      <th>Действия</th>
-    </tr>
-    {% for e in encounters %}
-    <tr>
-      <td>{{ e.id }}</td>
-      <td>{{ e.type }}</td>
-      <td>{{ e.start_datetime }}</td>
-      <td>{{ e.end_datetime }}</td>
-      <td>{{ e.bed_id }}</td>
-      <td class="actions">
-        <a class="btn ghost" href="{{ url_for('doctor_edit_encounter', encounter_id=e.id) }}">Изменить</a>
-        <a class="btn ghost" href="{{ url_for('doctor_add_treatment', encounter_id=e.id) }}">Назначение</a>
-      </td>
-    </tr>
-    {% endfor %}
-  </table>
-  <h2>Назначения</h2>
-  <table>
-    <tr>
-      <th>ID</th>
-      <th>encounter_id</th>
-      <th>Тип</th>
-      <th>Процедура</th>
-      <th>Препарат</th>
-      <th>Период</th>
-      <th>Частота</th>
-      <th>Заметка</th>
-    </tr>
-    {% for t in treatments %}
-    <tr>
-      <td>{{ t.id }}</td>
-      <td>{{ t.encounter_id }}</td>
-      <td>{{ t.type }}</td>
-      <td>{{ t.procedure_name if t.procedure_name else '' }}</td>
-      <td>{{ t.medication_name if t.medication_name else '' }}</td>
-      <td>{{ t.start_date }} - {{ t.end_date }}</td>
-      <td>{{ t.frequency }}</td>
-      <td>{{ t.note }}</td>
-    </tr>
-    {% endfor %}
-  </table>
+
+  <div class="card stack">
+    <div class="section-head">
+      <div>
+        <h2>Приемы</h2>
+        <p class="muted">История приемов этого пациента у текущего врача.</p>
+      </div>
+    </div>
+    {% if encounters %}
+      <div class="table-wrap">
+        <table>
+          <tr>
+            <th>ID</th>
+            <th>Тип</th>
+            <th>Период</th>
+            <th>Койка</th>
+            <th>Действия</th>
+          </tr>
+          {% for e in encounters %}
+            <tr>
+              <td>{{ e.id }}</td>
+              <td>{{ e.type }}</td>
+              <td>{{ e.start_datetime }}<br><span class="muted">{{ e.end_datetime }}</span></td>
+              <td>
+                {% if e.bed_id %}
+                  №{{ e.bed_id }}<br>
+                  <span class="muted">{{ e.department_name }} | {{ e.bed_status }}</span>
+                {% else %}
+                  <span class="muted">Не указана</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="actions">
+                  <a class="btn ghost small" href="{{ url_for('doctor_edit_encounter', encounter_id=e.id) }}">Редактировать</a>
+                  <a class="btn ghost small" href="{{ url_for('doctor_add_diagnosis', encounter_id=e.id) }}">Добавить диагноз</a>
+                  <a class="btn ghost small" href="{{ url_for('doctor_add_treatment', encounter_id=e.id) }}">Добавить назначение</a>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">У этого врача пока нет приемов по пациенту.</div>
+    {% endif %}
+  </div>
+
+  <div class="card stack">
+    <div class="section-head">
+      <div>
+        <h2>Диагнозы</h2>
+        <p class="muted">Только диагнозы, созданные в приемах текущего врача.</p>
+      </div>
+    </div>
+    {% if diagnoses %}
+      <div class="table-wrap">
+        <table>
+          <tr>
+            <th>ID</th>
+            <th>Прием</th>
+            <th>Код</th>
+            <th>Тип</th>
+            <th>Дата</th>
+            <th>Описание</th>
+          </tr>
+          {% for d in diagnoses %}
+            <tr>
+              <td>{{ d.id }}</td>
+              <td>#{{ d.encounter_id }}<br><span class="muted">{{ d.encounter_type }}</span></td>
+              <td>{{ d.icd10_code }}</td>
+              <td>{{ d.diagnosis_type }}</td>
+              <td>{{ d.diagnosed_at }}</td>
+              <td>{{ d.notes }}</td>
+            </tr>
+          {% endfor %}
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">Диагнозов по этому пациенту у текущего врача пока нет.</div>
+    {% endif %}
+  </div>
+
+  <div class="card stack">
+    <div class="section-head">
+      <div>
+        <h2>Назначения</h2>
+        <p class="muted">Процедуры и лекарства только из приемов текущего врача.</p>
+      </div>
+    </div>
+    {% if treatments %}
+      <div class="table-wrap">
+        <table>
+          <tr>
+            <th>ID</th>
+            <th>Прием</th>
+            <th>Назначение</th>
+            <th>Период</th>
+            <th>Частота</th>
+            <th>Тип</th>
+            <th>Примечание</th>
+          </tr>
+          {% for t in treatments %}
+            <tr>
+              <td>{{ t.id }}</td>
+              <td>#{{ t.encounter_id }}</td>
+              <td>
+                {% if t.procedure_name %}
+                  Процедура: {{ t.procedure_name }}
+                {% else %}
+                  Лекарство: {{ t.medication_name }}{% if t.medication_form or t.medication_strength %} ({{ t.medication_form }} {{ t.medication_strength }}){% endif %}
+                {% endif %}
+              </td>
+              <td>{{ t.start_date }}<br><span class="muted">{{ t.end_date }}</span></td>
+              <td>{{ t.frequency }}</td>
+              <td>{{ t.type }}</td>
+              <td>{{ t.note }}</td>
+            </tr>
+          {% endfor %}
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">Назначений по этому пациенту у текущего врача пока нет.</div>
+    {% endif %}
+  </div>
 {% endblock %}
