@@ -1,31 +1,52 @@
 {% extends "base.html" %}
 {% block content %}
-  <h1>Мои назначения</h1>
-  <div class="actions">
-    <a class="btn ghost" href="{{ url_for('patient_encounters') }}">Мои приемы</a>
+  <div class="card stack">
+    <div class="section-head">
+      <div>
+        <h1>Мои назначения</h1>
+      </div>
+    </div>
+    <form method="get" class="actions" style="justify-content:flex-start;">
+      <label class="toggle">
+        <input type="checkbox" name="only_active" value="1" {% if only_active %}checked{% endif %}>
+        Только актуальные
+      </label>
+      <button class="btn ghost small" type="submit">Применить</button>
+      {% if only_active %}
+        <a class="btn ghost small" href="{{ url_for('patient_treatments') }}">Сбросить</a>
+      {% endif %}
+    </form>
+    <div class="table-wrap">
+      <table>
+        <tr>
+          <th>№</th>
+          <th>Врач</th>
+          <th>Тип приема</th>
+          <th>Назначение</th>
+          <th>Период</th>
+          <th>Частота</th>
+          <th>Тип назначения</th>
+          <th>Заметка</th>
+        </tr>
+        {% for t in treatments %}
+        <tr {% if t.is_expired %}class="expired-row"{% endif %}>
+          <td>{{ loop.index }}</td>
+          <td>{{ t.doctor_name }}</td>
+          <td>{{ t.type_ru }}</td>
+          <td>
+            {% if t.procedure_name %}
+              Процедура: {{ t.procedure_name }}
+            {% else %}
+              Лекарство: {{ t.medication_name }}
+            {% endif %}
+          </td>
+          <td>{{ t.start_date|ui_date }} -<br><span class="muted">{{ t.end_date|ui_date }}</span></td>
+          <td>{{ t.frequency_ru }}</td>
+          <td>{{ t.assignment_type_ru }}</td>
+          <td>{{ t.note }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
   </div>
-  <table>
-    <tr>
-      <th>ID</th>
-      <th>encounter_id</th>
-      <th>Тип</th>
-      <th>Процедура</th>
-      <th>Препарат</th>
-      <th>Период</th>
-      <th>Частота</th>
-      <th>Заметка</th>
-    </tr>
-    {% for t in treatments %}
-    <tr>
-      <td>{{ t.id }}</td>
-      <td>{{ t.encounter_id }}</td>
-      <td>{{ t.type }}</td>
-      <td>{{ t.procedure_name if t.procedure_name else '' }}</td>
-      <td>{{ t.medication_name if t.medication_name else '' }}</td>
-      <td>{{ t.start_date }} - {{ t.end_date }}</td>
-      <td>{{ t.frequency }}</td>
-      <td>{{ t.note }}</td>
-    </tr>
-    {% endfor %}
-  </table>
 {% endblock %}

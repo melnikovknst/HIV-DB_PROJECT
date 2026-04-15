@@ -10,6 +10,9 @@ SELECT id FROM patients WHERE id = %s;
 SELECT 'BED_EXISTS';
 SELECT id FROM beds WHERE id = %s;
 
+SELECT 'BED_IS_FREE';
+SELECT id FROM beds WHERE id = %s AND LOWER(status) IN ('free', 'available');
+
 SELECT 'NEXT_ENCOUNTER_ID';
 SELECT COALESCE(MAX(id), 0) + 1 AS id FROM encounters;
 
@@ -65,6 +68,13 @@ FROM beds b
 JOIN departments d ON d.id = b.department_id
 ORDER BY CASE WHEN b.status = 'free' THEN 0 ELSE 1 END, d.name, b.id;
 
+SELECT 'BEDS_FREE_LIST';
+SELECT b.id, b.status, b.department_id, d.name AS department_name
+FROM beds b
+JOIN departments d ON d.id = b.department_id
+WHERE LOWER(b.status) IN ('free', 'available')
+ORDER BY d.name, b.id;
+
 SELECT 'DOCTOR_PATIENTS_SEARCH';
 SELECT p.id, p.name, p.sex, p.phone, p.email, p.snus, p.passport, p.birth_date
 FROM get_doctor_patients(%s) p
@@ -82,6 +92,26 @@ SELECT 'PATIENT_BY_ID';
 SELECT id, name, sex, phone, email, snus, passport, birth_date
 FROM patients
 WHERE id = %s;
+
+SELECT 'PATIENTS_LIST';
+SELECT id, name, sex, phone, email, snus, passport, birth_date
+FROM patients
+ORDER BY name;
+
+SELECT 'DOCTOR_PATIENTS_SEARCH_BY_FIELD';
+SELECT p.id, p.name, p.sex, p.phone, p.email, p.snus, p.passport, p.birth_date
+FROM get_doctor_patients(%s) p
+WHERE (
+  %s = ''
+  OR (%s = 'name' AND LOWER(p.name) LIKE LOWER(%s))
+  OR (%s = 'phone' AND p.phone LIKE %s)
+  OR (%s = 'snus' AND p.snus LIKE %s)
+  OR (%s = 'passport' AND REPLACE(p.passport, ' ', '') LIKE %s)
+  OR (%s = 'email' AND LOWER(p.email) LIKE LOWER(%s))
+  OR (%s = 'sex' AND p.sex = %s)
+  OR (%s = 'birth_date' AND (%s IS NULL OR p.birth_date >= %s) AND (%s IS NULL OR p.birth_date <= %s))
+)
+ORDER BY p.name;
 
 SELECT 'DOCTOR_PATIENT_ENCOUNTERS';
 SELECT e.id, e.patient_id, e.doctor_id, e.bed_id, e.type, e.start_datetime, e.end_datetime,
@@ -111,16 +141,35 @@ WHERE e.doctor_id = %s AND e.patient_id = %s
 ORDER BY ti.start_date DESC, ti.id DESC;
 
 SELECT 'PATIENT_ENCOUNTERS';
-SELECT id, patient_id, doctor_id, bed_id, type, start_datetime, end_datetime
-FROM encounters
-WHERE patient_id = %s
-ORDER BY start_datetime DESC;
+SELECT e.id, e.patient_id, e.doctor_id, e.bed_id, e.type, e.start_datetime, e.end_datetime, s.name AS doctor_name
+FROM encounters e
+JOIN staff s ON s.id = e.doctor_id
+WHERE e.patient_id = %s
+ORDER BY e.start_datetime DESC;
+
+SELECT 'PATIENT_ENCOUNTERS_SEARCH';
+SELECT e.id, e.patient_id, e.doctor_id, e.bed_id, e.type, e.start_datetime, e.end_datetime, s.name AS doctor_name
+FROM encounters e
+JOIN staff s ON s.id = e.doctor_id
+WHERE e.patient_id = %s
+AND (%s = '' OR (%s = 'doctor' AND LOWER(s.name) LIKE LOWER(%s)))
+AND (%s = '' OR (%s = 'type' AND e.type = %s))
+AND (
+  %s = ''
+  OR %s <> 'date_start'
+  OR (
+    (%s IS NULL OR e.start_datetime::date >= %s)
+    AND (%s IS NULL OR e.start_datetime::date <= %s)
+  )
+)
+ORDER BY e.start_datetime DESC;
 
 SELECT 'PATIENT_TREATMENTS';
 SELECT ti.id, ti.encounter_id, ti.procedure_id, ti.medication_id, ti.start_date, ti.end_date, ti.frequency, ti.type, ti.note,
-       p.name AS procedure_name, m.name AS medication_name
+       p.name AS procedure_name, m.name AS medication_name, s.name AS doctor_name, e.type AS encounter_type
 FROM treatment_items ti
 JOIN encounters e ON e.id = ti.encounter_id
+JOIN staff s ON s.id = e.doctor_id
 LEFT JOIN procedures p ON p.id = ti.procedure_id
 LEFT JOIN medication m ON m.id = ti.medication_id
 WHERE e.patient_id = %s

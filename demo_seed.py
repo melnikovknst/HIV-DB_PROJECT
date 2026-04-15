@@ -488,20 +488,36 @@ def generate_treatments(new_encounters):
         source.extend(missing)
     source = source[:needed]
     rows = []
+    today = date.today()
     for offset, encounter in enumerate(source):
         current_id = start_id + offset
-        start_date = encounter["start_datetime"].date()
-        end_date = encounter["end_datetime"].date()
+        mode = offset % 4
+        if mode == 0:
+            start_date = today - timedelta(days=120 + (offset % 45))
+            end_date = today + timedelta(days=300 + (offset % 280))
+        elif mode == 1:
+            start_date = today - timedelta(days=260 + (offset % 90))
+            end_date = today - timedelta(days=20 + (offset % 70))
+        elif mode == 2:
+            start_date = today - timedelta(days=40 + (offset % 30))
+            end_date = today + timedelta(days=45 + (offset % 110))
+        else:
+            start_date = today - timedelta(days=95 + (offset % 60))
+            end_date = today - timedelta(days=5 + (offset % 35))
+        if end_date < start_date:
+            end_date = start_date
         if offset % 2 == 0:
             procedure_id = (offset % len(PROCEDURES)) + 1
             medication_id = None
             item_type = "procedure"
             note = f"Назначена процедура: {PROCEDURES[(offset % len(PROCEDURES))][2].lower()}."
+            frequency = "one_time"
         else:
             procedure_id = None
             medication_id = (offset % len(MEDICATIONS)) + 1
             item_type = "medication"
             note = f"Медикаментозная терапия: {MEDICATIONS[(offset % len(MEDICATIONS))][1].lower()}."
+            frequency = FREQUENCIES[offset % len(FREQUENCIES)]
         rows.append(
             (
                 current_id,
@@ -509,8 +525,8 @@ def generate_treatments(new_encounters):
                 procedure_id,
                 medication_id,
                 start_date,
-                end_date if end_date >= start_date else start_date,
-                FREQUENCIES[offset % len(FREQUENCIES)],
+                end_date,
+                frequency,
                 item_type,
                 note,
             )
@@ -518,6 +534,64 @@ def generate_treatments(new_encounters):
     db.execute_many(
         "INSERT INTO treatment_items(id, encounter_id, procedure_id, medication_id, start_date, end_date, frequency, type, note) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
         rows,
+    )
+
+
+def ensure_patient_one_dense_treatments():
+    rows = db.query(
+        "SELECT e.id FROM encounters e WHERE e.patient_id = 1 ORDER BY e.start_datetime, e.id LIMIT 5"
+    )
+    if not rows:
+        return
+    encounter_ids = [row["id"] for row in rows]
+    existing_count = int(
+        db.query(
+            "SELECT COUNT(*) AS value FROM treatment_items ti JOIN encounters e ON e.id = ti.encounter_id WHERE e.patient_id = 1"
+        )[0]["value"]
+    )
+    active_count = int(
+        db.query(
+            "SELECT COUNT(*) AS value FROM treatment_items ti JOIN encounters e ON e.id = ti.encounter_id WHERE e.patient_id = 1 AND ti.end_date >= CURRENT_DATE"
+        )[0]["value"]
+    )
+    if existing_count >= 70 and active_count >= 20:
+        return
+    start_id = max_id("treatment_items") + 1
+    templates = [
+        (None, 1, date(2026, 1, 10), date(2027, 12, 20), "once_daily", "medication", "Длительная поддерживающая терапия, контроль до конца 2027 года"),
+        (3, None, date(2026, 2, 12), date(2026, 2, 12), "one_time", "procedure", "Контрольный лабораторный блок"),
+        (None, 2, date(2026, 2, 14), date(2026, 2, 24), "twice_daily", "medication", "Краткосрочная коррекция схемы"),
+        (4, None, date(2026, 3, 1), date(2026, 3, 1), "one_time", "procedure", "Инфузионная поддержка в рамках наблюдения"),
+        (None, 5, date(2026, 3, 2), date(2026, 3, 8), "three_times_daily", "medication", "Симптоматическая терапия при обострении"),
+        (None, 3, date(2026, 4, 3), date(2027, 7, 1), "once_daily", "medication", "Продленная комбинированная антиретровирусная схема"),
+        (1, None, date(2026, 5, 10), date(2026, 5, 10), "one_time", "procedure", "ЭКГ в рамках диспансерного контроля"),
+        (None, 4, date(2026, 6, 1), date(2026, 6, 14), "twice_daily", "medication", "Антибактериальный курс завершен"),
+        (None, 6, date(2026, 7, 5), date(2027, 10, 5), "once_daily", "medication", "Длительный курс контроля сердечно-сосудистого риска"),
+        (6, None, date(2026, 7, 20), date(2026, 7, 20), "one_time", "procedure", "Повторная консультация инфекциониста"),
+        (None, 1, date(2026, 8, 1), date(2026, 8, 9), "one_time", "medication", "Краткий тестовый этап смены терапии"),
+        (2, None, date(2026, 9, 1), date(2026, 9, 1), "one_time", "procedure", "Контрольная рентгенография"),
+    ]
+    inserts = []
+    total_rows = 36
+    for idx in range(total_rows):
+        encounter_id = encounter_ids[idx % len(encounter_ids)]
+        procedure_id, medication_id, start_date, end_date, frequency, item_type, note = templates[idx % len(templates)]
+        inserts.append(
+            (
+                start_id + idx,
+                encounter_id,
+                procedure_id,
+                medication_id,
+                start_date,
+                end_date,
+                frequency,
+                item_type,
+                note,
+            )
+        )
+    db.execute_many(
+        "INSERT INTO treatment_items(id, encounter_id, procedure_id, medication_id, start_date, end_date, frequency, type, note) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        inserts,
     )
 
 
@@ -530,3 +604,4 @@ def ensure_demo_data():
     new_encounters = generate_encounters()
     generate_diagnoses(new_encounters)
     generate_treatments(new_encounters)
+    ensure_patient_one_dense_treatments()

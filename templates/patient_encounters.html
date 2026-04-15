@@ -1,27 +1,148 @@
 {% extends "base.html" %}
 {% block content %}
-  <h1>Мои приемы</h1>
-  <div class="actions">
-    <a class="btn ghost" href="{{ url_for('patient_treatments') }}">Мои назначения</a>
+  <div class="card stack">
+    <div class="section-head">
+      <div>
+        <h1>Мои приемы</h1>
+      </div>
+    </div>
+    <form method="get" class="stack">
+      <div class="grid">
+        <div class="field">
+          <label>Поле поиска</label>
+          <select name="search_field" id="search_field">
+            <option value="doctor" {% if search_field == 'doctor' %}selected{% endif %}>Врач</option>
+            <option value="type" {% if search_field == 'type' %}selected{% endif %}>Тип приема</option>
+            <option value="date_start" {% if search_field == 'date_start' %}selected{% endif %}>Дата начала приема</option>
+          </select>
+        </div>
+        <div class="field" id="search_text_field">
+          <label id="search_text_label">Запрос</label>
+          <input type="text" name="search_query_text" id="search_query" value="{{ search_query if search_field == 'doctor' else '' }}">
+        </div>
+        <div class="field" id="search_type_field" style="display:none;">
+          <label>Тип приема</label>
+          <select name="search_query_type" id="search_query_type">
+            <option value="">Выберите тип</option>
+            {% for type_code, type_title in encounter_type_choices %}
+              <option value="{{ type_code }}" {% if search_query == type_code %}selected{% endif %}>{{ type_title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field" id="date_from_field" style="display:none;">
+          <label>Дата от</label>
+          <input type="date" name="date_from" id="date_from" value="{{ date_from }}">
+        </div>
+        <div class="field" id="date_to_field" style="display:none;">
+          <label>Дата до</label>
+          <input type="date" name="date_to" id="date_to" value="{{ date_to }}">
+        </div>
+      </div>
+      <input type="hidden" name="search_query" id="search_query_hidden" value="{{ search_query }}">
+      <div class="field-error" id="search_error">{{ search_error }}</div>
+      <div class="actions">
+        <button class="btn" type="submit">Найти</button>
+        <a class="btn ghost" href="{{ url_for('patient_encounters') }}">Сбросить</a>
+      </div>
+    </form>
   </div>
-  <table>
-    <tr>
-      <th>ID</th>
-      <th>doctor_id</th>
-      <th>bed_id</th>
-      <th>type</th>
-      <th>start_datetime</th>
-      <th>end_datetime</th>
-    </tr>
-    {% for e in encounters %}
-    <tr>
-      <td>{{ e.id }}</td>
-      <td>{{ e.doctor_id }}</td>
-      <td>{{ e.bed_id }}</td>
-      <td>{{ e.type }}</td>
-      <td>{{ e.start_datetime }}</td>
-      <td>{{ e.end_datetime }}</td>
-    </tr>
-    {% endfor %}
-  </table>
+
+  <div class="card stack">
+    <div class="section-head">
+      <div>
+        <h2>Список приемов</h2>
+        <p class="muted">Найдено: {{ encounters|length }}</p>
+      </div>
+    </div>
+    {% if encounters %}
+      <div class="table-wrap">
+        <table>
+          <tr>
+            <th>№</th>
+            <th>Врач</th>
+            <th>Тип приема</th>
+            <th>Период</th>
+            <th>Госпитализация</th>
+          </tr>
+          {% for e in encounters %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ e.doctor_name }}</td>
+            <td>{{ e.type_ru }}</td>
+            <td>{{ e.start_datetime|ui_date }} -<br><span class="muted">{{ e.end_datetime|ui_date }}</span></td>
+            <td>{% if e.bed_id %}Да{% else %}Нет{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">Приемы не найдены.</div>
+    {% endif %}
+  </div>
+  <script>
+    (function () {
+      const field = document.getElementById("search_field");
+      const textField = document.getElementById("search_text_field");
+      const typeField = document.getElementById("search_type_field");
+      const fromField = document.getElementById("date_from_field");
+      const toField = document.getElementById("date_to_field");
+      const textInput = document.getElementById("search_query");
+      const typeInput = document.getElementById("search_query_type");
+      const hidden = document.getElementById("search_query_hidden");
+      const label = document.getElementById("search_text_label");
+      const error = document.getElementById("search_error");
+      if (!field) return;
+      function validate() {
+        const mode = field.value;
+        const text = (textInput.value || "").trim();
+        const from = (document.getElementById("date_from").value || "").trim();
+        const to = (document.getElementById("date_to").value || "").trim();
+        if (mode === "doctor" && text && !/^[A-Za-zА-Яа-яЁё\s-]{2,120}$/.test(text)) {
+          error.textContent = "ФИО врача: только буквы, пробелы и дефис";
+          return false;
+        }
+        if (mode === "type" && !typeInput.value) {
+          error.textContent = "Выберите тип приема";
+          return false;
+        }
+        if (mode === "date_start") {
+          if (!from && !to) {
+            error.textContent = "Укажите хотя бы одну дату интервала";
+            return false;
+          }
+          if (from && to && from > to) {
+            error.textContent = "Дата начала интервала позже даты окончания";
+            return false;
+          }
+        }
+        error.textContent = "";
+        return true;
+      }
+      function syncMode() {
+        const mode = field.value;
+        const isDoctor = mode === "doctor";
+        const isType = mode === "type";
+        const isDate = mode === "date_start";
+        textField.style.display = isDoctor ? "" : "none";
+        typeField.style.display = isType ? "" : "none";
+        fromField.style.display = isDate ? "" : "none";
+        toField.style.display = isDate ? "" : "none";
+        label.textContent = "Врач";
+        if (!isDoctor) textInput.value = "";
+        validate();
+      }
+      field.form.addEventListener("submit", function (e) {
+        if (field.value === "doctor") hidden.value = textInput.value.trim();
+        if (field.value === "type") hidden.value = typeInput.value;
+        if (field.value === "date_start") hidden.value = "";
+        if (!validate()) e.preventDefault();
+      });
+      field.addEventListener("change", syncMode);
+      textInput.addEventListener("input", validate);
+      typeInput.addEventListener("change", validate);
+      document.getElementById("date_from").addEventListener("change", validate);
+      document.getElementById("date_to").addEventListener("change", validate);
+      syncMode();
+    })();
+  </script>
 {% endblock %}
