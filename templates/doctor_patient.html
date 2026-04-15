@@ -13,16 +13,12 @@
     </div>
     <div class="summary-grid">
       <div class="summary-item">
-        <div class="summary-label">ID пациента</div>
-        <div>{{ patient.id }}</div>
-      </div>
-      <div class="summary-item">
         <div class="summary-label">Пол</div>
-        <div>{{ patient.sex }}</div>
+        <div>{{ 'М' if patient.sex == 'M' else 'Ж' if patient.sex == 'F' else patient.sex }}</div>
       </div>
       <div class="summary-item">
         <div class="summary-label">Дата рождения</div>
-        <div>{{ patient.birth_date }}</div>
+        <div>{{ patient.birth_date|ui_date }}</div>
       </div>
       <div class="summary-item">
         <div class="summary-label">Телефон</div>
@@ -50,7 +46,7 @@
       <div class="table-wrap">
         <table>
           <tr>
-            <th>ID</th>
+            <th>№</th>
             <th>Тип</th>
             <th>Период</th>
             <th>Койка</th>
@@ -58,12 +54,11 @@
           </tr>
           {% for e in encounters %}
             <tr>
-              <td>{{ e.id }}</td>
+              <td>{{ loop.index }}</td>
               <td>{{ e.type }}</td>
-              <td>{{ e.start_datetime }}<br><span class="muted">{{ e.end_datetime }}</span></td>
+              <td>{{ e.start_datetime|ui_date }} -<br><span class="muted">{{ e.end_datetime|ui_date }}</span></td>
               <td>
                 {% if e.bed_id %}
-                  №{{ e.bed_id }}<br>
                   <span class="muted">{{ e.department_name }} | {{ e.bed_status }}</span>
                 {% else %}
                   <span class="muted">Не указана</span>
@@ -96,7 +91,7 @@
       <div class="table-wrap">
         <table>
           <tr>
-            <th>ID</th>
+            <th>№</th>
             <th>Прием</th>
             <th>Код</th>
             <th>Тип</th>
@@ -105,11 +100,11 @@
           </tr>
           {% for d in diagnoses %}
             <tr>
-              <td>{{ d.id }}</td>
-              <td>#{{ d.encounter_id }}<br><span class="muted">{{ d.encounter_type }}</span></td>
+              <td>{{ loop.index }}</td>
+              <td>{{ d.encounter_type }}<br><span class="muted">{{ d.encounter_start|ui_date }}</span></td>
               <td>{{ d.icd10_code }}</td>
               <td>{{ d.diagnosis_type }}</td>
-              <td>{{ d.diagnosed_at }}</td>
+              <td>{{ d.diagnosed_at|ui_date }}</td>
               <td>{{ d.notes }}</td>
             </tr>
           {% endfor %}
@@ -131,8 +126,7 @@
       <div class="table-wrap">
         <table>
           <tr>
-            <th>ID</th>
-            <th>Прием</th>
+            <th>№</th>
             <th>Назначение</th>
             <th>Период</th>
             <th>Частота</th>
@@ -141,8 +135,7 @@
           </tr>
           {% for t in treatments %}
             <tr>
-              <td>{{ t.id }}</td>
-              <td>#{{ t.encounter_id }}</td>
+              <td>{{ loop.index }}</td>
               <td>
                 {% if t.procedure_name %}
                   Процедура: {{ t.procedure_name }}
@@ -150,7 +143,7 @@
                   Лекарство: {{ t.medication_name }}{% if t.medication_form or t.medication_strength %} ({{ t.medication_form }} {{ t.medication_strength }}){% endif %}
                 {% endif %}
               </td>
-              <td>{{ t.start_date }}<br><span class="muted">{{ t.end_date }}</span></td>
+              <td>{{ t.start_date|ui_date }} -<br><span class="muted">{{ t.end_date|ui_date }}</span></td>
               <td>{{ t.frequency }}</td>
               <td>{{ t.type }}</td>
               <td>{{ t.note }}</td>

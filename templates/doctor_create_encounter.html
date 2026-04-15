@@ -4,7 +4,7 @@
     <div class="section-head">
       <div>
         <h1>Создать прием</h1>
-        <p class="muted">Пациент подставляется из контекста карточки, если переход выполнен оттуда.</p>
+        <p class="muted">Выберите пациента и заполните параметры приема.</p>
       </div>
       <div class="actions">
         {% if patient %}
@@ -20,24 +20,30 @@
     <form method="post" class="stack">
       <div class="grid">
         <div class="field">
-          <label>ID пациента</label>
-          <input type="number" name="patient_id" value="{{ form_data.patient_id }}" {% if patient %}readonly{% endif %} required>
-        </div>
-        <div class="field">
           <label>Пациент</label>
-          <input type="text" value="{{ patient.name if patient else 'Введите ID пациента' }}" readonly>
+          <select name="patient_id" required>
+            <option value="">Выберите пациента</option>
+            {% for p in patients %}
+              <option value="{{ p.id }}" {% if form_data.patient_id == p.id|string %}selected{% endif %}>{{ p.name }} | {{ p.phone }} | {{ p.email }}</option>
+            {% endfor %}
+          </select>
         </div>
         <div class="field">
           <label>Тип приема</label>
-          <input type="text" name="type" value="{{ form_data.type }}" placeholder="inpatient / outpatient / consultation" required>
+          <select name="type" id="encounter_type" required>
+            <option value="">Выберите тип приема</option>
+            {% for type_code, type_title in encounter_type_choices %}
+              <option value="{{ type_code }}" {% if form_data.type == type_code %}selected{% endif %}>{{ type_title }}</option>
+            {% endfor %}
+          </select>
         </div>
-        <div class="field">
+        <div class="field" id="bed_field">
           <label>Койка</label>
-          <select name="bed_id">
-            <option value="">Без койки</option>
+          <select name="bed_id" id="bed_id">
+            <option value="">Выберите свободную койку</option>
             {% for bed in beds %}
               <option value="{{ bed.id }}" {% if form_data.bed_id == bed.id|string %}selected{% endif %}>
-                Койка {{ bed.id }} | {{ bed.department_name }} | {{ bed.status }}
+                Койка {{ bed.id }} | {{ bed.department_name }}
               </option>
             {% endfor %}
           </select>
@@ -56,4 +62,20 @@
       </div>
     </form>
   </div>
+  <script>
+    (function () {
+      const typeSelect = document.getElementById("encounter_type");
+      const bedField = document.getElementById("bed_field");
+      const bedSelect = document.getElementById("bed_id");
+      if (!typeSelect || !bedField || !bedSelect) return;
+      function syncBedVisibility() {
+        const isHospitalization = typeSelect.value === "inpatient";
+        bedField.style.display = isHospitalization ? "" : "none";
+        bedSelect.required = isHospitalization;
+        if (!isHospitalization) bedSelect.value = "";
+      }
+      typeSelect.addEventListener("change", syncBedVisibility);
+      syncBedVisibility();
+    })();
+  </script>
 {% endblock %}

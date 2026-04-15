@@ -1,6 +1,6 @@
 import os
 import re
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
 import db
@@ -12,6 +12,28 @@ SQL_DIR = BASE_DIR / "sql"
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET", "local-secret-key")
+
+
+ENCOUNTER_TYPE_CHOICES = [
+    ("outpatient", "Амбулаторный прием"),
+    ("inpatient", "Госпитализация"),
+    ("consultation", "Консультация"),
+    ("follow_up", "Повторный прием"),
+    ("diagnostic", "Диагностика"),
+    ("day_hospital", "Дневной стационар"),
+]
+ENCOUNTER_TYPE_LABELS = {code: label for code, label in ENCOUNTER_TYPE_CHOICES}
+FREQUENCY_LABELS = {
+    "one_time": "Однократно",
+    "once_daily": "1 раз в день",
+    "twice_daily": "2 раза в день",
+    "three_times_daily": "3 раза в день",
+    "weekly": "1 раз в неделю",
+}
+ASSIGNMENT_TYPE_LABELS = {
+    "procedure": "Процедура",
+    "medication": "Медикамент",
+}
 
 
 def load_selects(path):
@@ -30,6 +52,30 @@ def load_selects(path):
 
 
 SELECTS = {}
+
+
+def format_ui_date(value):
+    if value is None:
+        return ""
+    if isinstance(value, datetime):
+        return value.strftime("%d.%m.%Y")
+    if isinstance(value, date):
+        return value.strftime("%d.%m.%Y")
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return ""
+        normalized = text.replace("T", " ")
+        try:
+            if len(normalized) >= 19:
+                return datetime.fromisoformat(normalized[:19]).strftime("%d.%m.%Y")
+            return date.fromisoformat(normalized[:10]).strftime("%d.%m.%Y")
+        except ValueError:
+            return text
+    return str(value)
+
+
+app.jinja_env.filters["ui_date"] = format_ui_date
 
 
 def init_db():
@@ -99,8 +145,16 @@ def get_patient(patient_id):
     return rows[0] if rows else None
 
 
+def get_all_patients():
+    return db.query(SELECTS["PATIENTS_LIST"])
+
+
 def get_beds():
     return db.query(SELECTS["BEDS_LIST"])
+
+
+def get_free_beds():
+    return db.query(SELECTS["BEDS_FREE_LIST"])
 
 
 def get_procedures():
@@ -166,6 +220,71 @@ def build_treatment_form_data(form):
     }
 
 
+def normalize_passport_input(passport_text):
+    digits = re.sub(r"\s+", "", passport_text or "")
+    if not re.fullmatch(r"\d{10}", digits):
+        return None, None
+    return f"{digits[:4]} {digits[4:]}", digits
+
+
+def validate_patient_search(search_field, search_query, date_from, date_to):
+    allowed_fields = {"name", "phone", "snus", "passport", "email", "sex", "birth_date"}
+    if search_field not in allowed_fields:
+        return "name", search_query, "Некорректное поле поиска"
+    query = search_query.strip()
+    if search_field == "sex":
+        if query in {"М", "M"}:
+            return search_field, "M", ""
+        if query in {"Ж", "F"}:
+            return search_field, "F", ""
+        if query == "":
+            return search_field, "", ""
+        return search_field, query, "Пол: выберите М или Ж"
+    if search_field == "birth_date":
+        if not date_from and not date_to:
+            return search_field, query, "Укажите хотя бы одну дату интервала"
+        if date_from and date_to and date_from > date_to:
+            return search_field, query, "Дата начала интервала позже даты окончания"
+        return search_field, query, ""
+    if query == "":
+        return search_field, query, ""
+    patterns = {
+        "name": r"^[A-Za-zА-Яа-яЁё\s\-]{2,80}$",
+        "phone": r"^\+?[0-9\-\s\(\)]{6,22}$",
+        "snus": r"^[0-9\-\s]{8,20}$",
+        "passport": r"^\d{4}\s?\d{6}$",
+        "email": r"^[^\s@]+@[^\s@]+\.[^\s@]+$",
+    }
+    messages = {
+        "name": "Имя: минимум 2 символа, только буквы, пробел или дефис",
+        "phone": "Телефон: допустимы цифры, пробелы, +, (), дефис",
+        "snus": "СНИЛС: только цифры, пробелы и дефис",
+        "passport": "Паспорт: 10 цифр, формат 4515 100155 или 4515100155",
+        "email": "Email в формате name@example.com",
+    }
+    if not re.fullmatch(patterns[search_field], query):
+        return search_field, query, messages[search_field]
+    return search_field, query, ""
+
+
+def validate_patient_encounters_search(search_field, search_query, date_from, date_to):
+    allowed_fields = {"doctor", "type", "date_start"}
+    if search_field not in allowed_fields:
+        return "doctor", "Некорректное поле поиска"
+    if search_field == "doctor":
+        if search_query and not re.fullmatch(r"^[A-Za-zА-Яа-яЁё\s\-]{2,120}$", search_query):
+            return search_field, "ФИО врача: только буквы, пробелы и дефис"
+    elif search_field == "type":
+        if search_query and search_query not in ENCOUNTER_TYPE_LABELS:
+            return search_field, "Выберите корректный тип приема"
+    elif search_field == "date_start":
+        if not date_from and not date_to:
+            return search_field, "Укажите хотя бы одну дату интервала"
+        if date_from and date_to and date_from > date_to:
+            return search_field, "Дата начала интервала позже даты окончания"
+    return search_field, ""
+
+
 def validate_encounter_form(form_data, current_encounter=None):
     patient_id = parse_int(form_data["patient_id"])
     bed_id = parse_int(form_data["bed_id"])
@@ -182,12 +301,17 @@ def validate_encounter_form(form_data, current_encounter=None):
         return "Пациент не найден", None
     if current_encounter and current_encounter["patient_id"] != patient_id:
         return "Нельзя менять пациента у существующего приема", None
-    if form_data["bed_id"] and not bed_id:
-        return "Выберите корректную койку", None
-    if bed_id and not db.query(SELECTS["BED_EXISTS"], [bed_id]):
-        return "Койка не найдена", None
-    if not form_data["type"]:
-        return "Заполните тип приема", None
+    if form_data["type"] not in ENCOUNTER_TYPE_LABELS:
+        return "Выберите тип приема из списка", None
+    if form_data["type"] == "inpatient":
+        if form_data["bed_id"] and not bed_id:
+            return "Выберите корректную койку", None
+        if not bed_id:
+            return "Для госпитализации нужно выбрать свободную койку", None
+        if not db.query(SELECTS["BED_IS_FREE"], [bed_id]):
+            return "Койка занята или недоступна", None
+    else:
+        bed_id = None
     if not start_dt or not end_dt:
         return "Проверьте даты приема", None
     if start_dt > end_dt:
@@ -303,26 +427,53 @@ def login():
                     session["patient_id"] = user_id
                     return redirect(url_for("patient_encounters"))
                 error = "Пациент не найден"
-    return render_template("login.html", error=error, nav_links=[])
+    return render_template("login.html", error=error, nav_links=[], brand_link=False)
 
 
 @app.route("/doctor/my_patients")
 def doctor_my_patients():
     if not require_doctor():
         abort(403)
-    name_q = request.args.get("name", "").strip()
-    patient_id_raw = request.args.get("patient_id", "").strip()
-    patient_id = parse_int(patient_id_raw)
-    rows = db.query(
-        SELECTS["DOCTOR_PATIENTS_SEARCH"],
-        [session["doctor_id"], patient_id, patient_id, name_q, f"%{name_q}%"],
-    )
+    search_field = request.args.get("search_field", "name").strip().lower()
+    search_query = request.args.get("search_query", "").strip()
+    if search_field in {"name", "phone", "snus", "passport", "email"} and not search_query:
+        search_query = request.args.get("search_query_text", "").strip()
+    if search_field == "sex" and not search_query:
+        search_query = request.args.get("search_query_sex", "").strip()
+    date_from = request.args.get("date_from", "").strip()
+    date_to = request.args.get("date_to", "").strip()
+    search_field, search_query, search_error = validate_patient_search(search_field, search_query, date_from, date_to)
+    passport_digits = ""
+    if search_field == "passport" and search_query and not search_error:
+        normalized_passport, passport_digits = normalize_passport_input(search_query)
+        search_query = normalized_passport or search_query
+    if search_error:
+        rows = []
+    else:
+        wildcard = f"%{passport_digits}%" if search_field == "passport" else f"%{search_query}%"
+        rows = db.query(
+            SELECTS["DOCTOR_PATIENTS_SEARCH_BY_FIELD"],
+            [
+                session["doctor_id"],
+                search_query,
+                search_field, wildcard,
+                search_field, wildcard,
+                search_field, wildcard,
+                search_field, wildcard,
+                search_field, wildcard,
+                search_field, search_query,
+                search_field, date_from or None, date_from or None, date_to or None, date_to or None,
+            ],
+        )
     return render_doctor(
         "doctor_my_patients.html",
         title="Мои пациенты",
         patients=rows,
-        name=name_q,
-        patient_id=patient_id_raw,
+        search_field=search_field,
+        search_query=search_query,
+        search_error=search_error,
+        date_from=date_from,
+        date_to=date_to,
     )
 
 
@@ -353,6 +504,7 @@ def doctor_create_encounter():
     patient = get_patient(patient_id) if patient_id else None
     form_data = build_encounter_form_data(request.form if request.method == "POST" else request.args, patient_id)
     error = ""
+    patients = get_all_patients()
     if request.method == "POST":
         error, cleaned = validate_encounter_form(form_data)
         if not error:
@@ -377,7 +529,9 @@ def doctor_create_encounter():
         error=error,
         form_data=form_data,
         patient=patient,
-        beds=get_beds(),
+        patients=patients,
+        beds=get_free_beds(),
+        encounter_type_choices=ENCOUNTER_TYPE_CHOICES,
     )
 
 
@@ -421,6 +575,7 @@ def doctor_edit_encounter(encounter_id):
         error=error,
         form_data=form_data,
         beds=get_beds(),
+        encounter_type_choices=ENCOUNTER_TYPE_CHOICES,
     )
 
 
@@ -522,16 +677,74 @@ def doctor_add_treatment(encounter_id):
 def patient_encounters():
     if not require_patient():
         abort(403)
-    rows = db.query(SELECTS["PATIENT_ENCOUNTERS"], [session["patient_id"]])
-    return render_patient("patient_encounters.html", title="Мои приемы", encounters=rows)
+    search_field = request.args.get("search_field", "doctor").strip()
+    search_query = request.args.get("search_query", "").strip()
+    if search_field == "doctor" and not search_query:
+        search_query = request.args.get("search_query_text", "").strip()
+    if search_field == "type" and not search_query:
+        search_query = request.args.get("search_query_type", "").strip()
+    date_from = request.args.get("date_from", "").strip()
+    date_to = request.args.get("date_to", "").strip()
+    search_field, search_error = validate_patient_encounters_search(search_field, search_query, date_from, date_to)
+    if search_error:
+        rows = []
+    else:
+        doctor_wildcard = f"%{search_query}%"
+        rows = db.query(
+            SELECTS["PATIENT_ENCOUNTERS_SEARCH"],
+            [
+                session["patient_id"],
+                search_query,
+                search_field,
+                doctor_wildcard,
+                search_query,
+                search_field,
+                search_query,
+                search_query,
+                search_field,
+                date_from or None,
+                date_from or None,
+                date_to or None,
+                date_to or None,
+            ],
+        )
+    for row in rows:
+        row["type_ru"] = ENCOUNTER_TYPE_LABELS.get(row["type"], row["type"])
+    return render_patient(
+        "patient_encounters.html",
+        title="Мои приемы",
+        encounters=rows,
+        search_field=search_field,
+        search_query=search_query,
+        search_error=search_error,
+        date_from=date_from,
+        date_to=date_to,
+        encounter_type_choices=ENCOUNTER_TYPE_CHOICES,
+    )
 
 
 @app.route("/patient/treatments")
 def patient_treatments():
     if not require_patient():
         abort(403)
+    only_active = request.args.get("only_active", "").strip() == "1"
     rows = db.query(SELECTS["PATIENT_TREATMENTS"], [session["patient_id"]])
-    return render_patient("patient_treatments.html", title="Мои назначения", treatments=rows)
+    today = date.today()
+    normalized_rows = []
+    for row in rows:
+        row["frequency_ru"] = FREQUENCY_LABELS.get(row["frequency"], row["frequency"])
+        row["type_ru"] = ENCOUNTER_TYPE_LABELS.get(row["encounter_type"], row["encounter_type"])
+        row["assignment_type_ru"] = ASSIGNMENT_TYPE_LABELS.get(row["type"], row["type"])
+        row["is_expired"] = row["end_date"] < today
+        if only_active and row["is_expired"]:
+            continue
+        normalized_rows.append(row)
+    return render_patient(
+        "patient_treatments.html",
+        title="Мои назначения",
+        treatments=normalized_rows,
+        only_active=only_active,
+    )
 
 
 init_db()
