@@ -102,13 +102,12 @@ SELECT 'DOCTOR_PATIENTS_SEARCH_BY_FIELD';
 SELECT p.id, p.name, p.sex, p.phone, p.email, p.snus, p.passport, p.birth_date
 FROM get_doctor_patients(%s) p
 WHERE (
-  %s = ''
-  OR (%s = 'name' AND LOWER(p.name) LIKE LOWER(%s))
-  OR (%s = 'phone' AND p.phone LIKE %s)
-  OR (%s = 'snus' AND p.snus LIKE %s)
-  OR (%s = 'passport' AND REPLACE(p.passport, ' ', '') LIKE %s)
-  OR (%s = 'email' AND LOWER(p.email) LIKE LOWER(%s))
-  OR (%s = 'sex' AND p.sex = %s)
+  (%s = 'name' AND (%s = '' OR LOWER(p.name) LIKE LOWER(%s)))
+  OR (%s = 'phone' AND (%s = '' OR p.phone LIKE %s))
+  OR (%s = 'snus' AND (%s = '' OR p.snus LIKE %s))
+  OR (%s = 'passport' AND (%s = '' OR REPLACE(p.passport, ' ', '') LIKE %s))
+  OR (%s = 'email' AND (%s = '' OR LOWER(p.email) LIKE LOWER(%s)))
+  OR (%s = 'sex' AND (%s = '' OR p.sex = %s))
   OR (%s = 'birth_date' AND (%s IS NULL OR p.birth_date >= %s) AND (%s IS NULL OR p.birth_date <= %s))
 )
 ORDER BY p.name;
@@ -152,11 +151,10 @@ SELECT e.id, e.patient_id, e.doctor_id, e.bed_id, e.type, e.start_datetime, e.en
 FROM encounters e
 JOIN staff s ON s.id = e.doctor_id
 WHERE e.patient_id = %s
-AND (%s = '' OR (%s = 'doctor' AND LOWER(s.name) LIKE LOWER(%s)))
-AND (%s = '' OR (%s = 'type' AND e.type = %s))
+AND (%s <> 'doctor' OR %s = '' OR LOWER(s.name) LIKE LOWER(%s))
+AND (%s <> 'type' OR %s = '' OR e.type = %s)
 AND (
-  %s = ''
-  OR %s <> 'date_start'
+  %s <> 'date_start'
   OR (
     (%s IS NULL OR e.start_datetime::date >= %s)
     AND (%s IS NULL OR e.start_datetime::date <= %s)
