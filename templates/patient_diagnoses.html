@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card stack">
+    <div class="section-head">
+      <div>
+        <h1>Мои диагнозы</h1>
+      </div>
+    </div>
+    {% if diagnoses %}
+      <div class="table-wrap">
+        <table>
+          <tr>
+            <th>№</th>
+            <th>Врач</th>
+            <th>Прием</th>
+            <th>Код</th>
+            <th>Тип</th>
+            <th>Дата</th>
+            <th>Описание</th>
+          </tr>
+          {% for d in diagnoses %}
+            <tr id="diagnosis-{{ d.id }}" {% if d.is_focused %}class="focus-row"{% endif %} data-focused="{{ '1' if d.is_focused else '0' }}">
+              <td>{{ loop.index }}</td>
+              <td>{{ d.doctor_name }}</td>
+              <td>
+                <a href="{{ url_for('patient_encounters', focus_encounter=d.encounter_id) }}">{{ d.encounter_type_ru }}</a><br>
+                <span class="muted">{{ d.encounter_start|ui_date }}</span>
+              </td>
+              <td>{{ d.icd10_code }}</td>
+              <td>{{ d.diagnosis_type_ru }}</td>
+              <td>{{ d.diagnosed_at|ui_date }}</td>
+              <td>{{ d.notes }}</td>
+            </tr>
+          {% endfor %}
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">Диагнозы не найдены.</div>
+    {% endif %}
+  </div>
+  <style>
+    .focus-row {
+      background: linear-gradient(90deg, rgba(126, 168, 110, 0.22), rgba(163, 177, 138, 0.18));
+      outline: 2px solid rgba(58, 90, 64, 0.35);
+      outline-offset: -2px;
+    }
+  </style>
+  <script>
+    (function () {
+      const focused = document.querySelector('tr[data-focused="1"]');
+      if (!focused) return;
+      setTimeout(function () {
+        focused.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 120);
+    })();
+  </script>
+{% endblock %}

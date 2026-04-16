@@ -63,15 +63,65 @@
             <th>Тип приема</th>
             <th>Период</th>
             <th>Госпитализация</th>
+            <th>Карточка</th>
           </tr>
           {% for e in encounters %}
-          <tr>
-            <td>{{ loop.index }}</td>
-            <td>{{ e.doctor_name }}</td>
-            <td>{{ e.type_ru }}</td>
-            <td>{{ e.start_datetime|ui_date }} -<br><span class="muted">{{ e.end_datetime|ui_date }}</span></td>
-            <td>{% if e.bed_id %}Да{% else %}Нет{% endif %}</td>
-          </tr>
+            {% set details = details_by_encounter.get(e.id, {'diagnoses': [], 'treatments': []}) %}
+            <tr class="encounter-row {% if e.is_focused %}focus-row{% endif %}" data-focused="{{ '1' if e.is_focused else '0' }}">
+              <td>{{ loop.index }}</td>
+              <td>{{ e.doctor_name }}</td>
+              <td>{{ e.type_ru }}</td>
+              <td>{{ e.start_datetime|ui_date }} -<br><span class="muted">{{ e.end_datetime|ui_date }}</span></td>
+              <td>{% if e.bed_id %}Да{% else %}Нет{% endif %}</td>
+              <td>
+                <button
+                  type="button"
+                  class="btn ghost small encounter-toggle"
+                  data-target="encounter-details-{{ e.id }}"
+                  data-open-label="Скрыть"
+                  data-closed-label="Открыть">
+                  Открыть
+                </button>
+              </td>
+            </tr>
+            <tr class="encounter-detail-row">
+              <td colspan="6" style="padding: 0;">
+                <div id="encounter-details-{{ e.id }}" class="encounter-details">
+                  <div class="encounter-details-inner">
+                    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
+                      <div>
+                        <h3>Диагнозы</h3>
+                        {% if details.diagnoses %}
+                          <ul class="compact-list">
+                            {% for d in details.diagnoses %}
+                              <li>
+                                <a href="{{ url_for('patient_diagnoses', focus=d.id) }}">{{ d.title }}</a>
+                              </li>
+                            {% endfor %}
+                          </ul>
+                        {% else %}
+                          <div class="muted">По этому приему диагнозов пока нет.</div>
+                        {% endif %}
+                      </div>
+                      <div>
+                        <h3>Назначения</h3>
+                        {% if details.treatments %}
+                          <ul class="compact-list">
+                            {% for t in details.treatments %}
+                              <li>
+                                <a href="{{ url_for('patient_treatments', focus=t.id) }}">{{ t.title }}</a>
+                              </li>
+                            {% endfor %}
+                          </ul>
+                        {% else %}
+                          <div class="muted">По этому приему назначений пока нет.</div>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
           {% endfor %}
         </table>
       </div>
@@ -79,6 +129,42 @@
       <div class="empty">Приемы не найдены.</div>
     {% endif %}
   </div>
+  <style>
+    .encounter-details {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: max-height 0.36s ease, opacity 0.26s ease;
+      border-top: 1px solid transparent;
+      background: rgba(255, 255, 255, 0.65);
+    }
+    .encounter-details.open {
+      opacity: 1;
+      border-top-color: var(--line);
+    }
+    .encounter-details-inner {
+      padding: 16px 14px 18px;
+    }
+    .compact-list {
+      margin: 8px 0 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 6px;
+    }
+    .compact-list a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px dashed rgba(47, 95, 77, 0.38);
+    }
+    .compact-list a:hover {
+      border-bottom-color: rgba(47, 95, 77, 0.7);
+    }
+    .encounter-row.focus-row {
+      outline: 2px solid rgba(58, 90, 64, 0.35);
+      outline-offset: -2px;
+      background: linear-gradient(90deg, rgba(126, 168, 110, 0.22), rgba(163, 177, 138, 0.18));
+    }
+  </style>
   <script>
     (function () {
       const field = document.getElementById("search_field");
@@ -143,6 +229,54 @@
       document.getElementById("date_from").addEventListener("change", validate);
       document.getElementById("date_to").addEventListener("change", validate);
       syncMode();
+
+      const toggles = document.querySelectorAll(".encounter-toggle");
+      let openedId = null;
+
+      function closeCard(cardId) {
+        if (!cardId) return;
+        const card = document.getElementById(cardId);
+        const btn = document.querySelector('.encounter-toggle[data-target="' + cardId + '"]');
+        if (card) {
+          card.classList.remove("open");
+          card.style.maxHeight = "0px";
+        }
+        if (btn) btn.textContent = btn.dataset.closedLabel || "Открыть";
+      }
+
+      function openCard(cardId) {
+        const card = document.getElementById(cardId);
+        const btn = document.querySelector('.encounter-toggle[data-target="' + cardId + '"]');
+        if (card) {
+          card.classList.add("open");
+          card.style.maxHeight = card.scrollHeight + "px";
+        }
+        if (btn) btn.textContent = btn.dataset.openLabel || "Скрыть";
+      }
+
+      toggles.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          const target = btn.dataset.target;
+          if (!target) return;
+          if (openedId && openedId !== target) {
+            closeCard(openedId);
+          }
+          if (openedId === target) {
+            closeCard(target);
+            openedId = null;
+            return;
+          }
+          openCard(target);
+          openedId = target;
+        });
+      });
+
+      const focusedEncounter = document.querySelector('tr.encounter-row[data-focused="1"]');
+      if (focusedEncounter) {
+        setTimeout(function () {
+          focusedEncounter.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 120);
+      }
     })();
   </script>
 {% endblock %}

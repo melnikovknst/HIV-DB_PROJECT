@@ -67,8 +67,7 @@
               <td>
                 <div class="actions">
                   <a class="btn ghost small" href="{{ url_for('doctor_edit_encounter', encounter_id=e.id) }}">Редактировать</a>
-                  <a class="btn ghost small" href="{{ url_for('doctor_add_diagnosis', encounter_id=e.id) }}">Добавить диагноз</a>
-                  <a class="btn ghost small" href="{{ url_for('doctor_add_treatment', encounter_id=e.id) }}">Добавить назначение</a>
+                  <a class="btn ghost small" href="{{ url_for('doctor_compose_encounter', encounter_id=e.id) }}">Диагнозы и назначения</a>
                 </div>
               </td>
             </tr>
@@ -103,7 +102,7 @@
               <td>{{ loop.index }}</td>
               <td>{{ d.encounter_type }}<br><span class="muted">{{ d.encounter_start|ui_date }}</span></td>
               <td>{{ d.icd10_code }}</td>
-              <td>{{ d.diagnosis_type }}</td>
+              <td>{{ d.diagnosis_type_ru }}</td>
               <td>{{ d.diagnosed_at|ui_date }}</td>
               <td>{{ d.notes }}</td>
             </tr>

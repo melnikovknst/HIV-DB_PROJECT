@@ -121,6 +121,13 @@ LEFT JOIN departments d ON d.id = b.department_id
 WHERE e.doctor_id = %s AND e.patient_id = %s
 ORDER BY e.start_datetime DESC, e.id DESC;
 
+SELECT 'DOCTOR_ENCOUNTER_DIAGNOSES';
+SELECT dg.id, dg.patient_id, dg.encounter_id, dg.icd10_code, dg.diagnosis_type, dg.diagnosed_at, dg.notes
+FROM diagnoses dg
+JOIN encounters e ON e.id = dg.encounter_id
+WHERE e.id = %s AND e.doctor_id = %s
+ORDER BY dg.diagnosed_at DESC, dg.id DESC;
+
 SELECT 'DOCTOR_PATIENT_DIAGNOSES';
 SELECT dg.id, dg.patient_id, dg.encounter_id, dg.icd10_code, dg.diagnosis_type, dg.diagnosed_at, dg.notes,
        e.type AS encounter_type, e.start_datetime AS encounter_start
@@ -128,6 +135,16 @@ FROM diagnoses dg
 JOIN encounters e ON e.id = dg.encounter_id
 WHERE e.doctor_id = %s AND e.patient_id = %s
 ORDER BY dg.diagnosed_at DESC, dg.id DESC;
+
+SELECT 'DOCTOR_ENCOUNTER_TREATMENTS';
+SELECT ti.id, ti.encounter_id, ti.procedure_id, ti.medication_id, ti.start_date, ti.end_date, ti.frequency, ti.type, ti.note,
+       p.name AS procedure_name, m.name AS medication_name, m.form AS medication_form, m.strength AS medication_strength
+FROM treatment_items ti
+JOIN encounters e ON e.id = ti.encounter_id
+LEFT JOIN procedures p ON p.id = ti.procedure_id
+LEFT JOIN medication m ON m.id = ti.medication_id
+WHERE e.id = %s AND e.doctor_id = %s
+ORDER BY ti.start_date DESC, ti.id DESC;
 
 SELECT 'DOCTOR_PATIENT_TREATMENTS';
 SELECT ti.id, ti.encounter_id, ti.procedure_id, ti.medication_id, ti.start_date, ti.end_date, ti.frequency, ti.type, ti.note,
@@ -146,6 +163,22 @@ JOIN staff s ON s.id = e.doctor_id
 WHERE e.patient_id = %s
 ORDER BY e.start_datetime DESC;
 
+SELECT 'PATIENT_ENCOUNTER_DETAILS_DIAGNOSES';
+SELECT dg.id, dg.encounter_id, dg.icd10_code, dg.diagnosis_type
+FROM diagnoses dg
+JOIN encounters e ON e.id = dg.encounter_id
+WHERE e.patient_id = %s
+ORDER BY dg.diagnosed_at DESC, dg.id DESC;
+
+SELECT 'PATIENT_ENCOUNTER_DETAILS_TREATMENTS';
+SELECT ti.id, ti.encounter_id, p.name AS procedure_name, m.name AS medication_name
+FROM treatment_items ti
+JOIN encounters e ON e.id = ti.encounter_id
+LEFT JOIN procedures p ON p.id = ti.procedure_id
+LEFT JOIN medication m ON m.id = ti.medication_id
+WHERE e.patient_id = %s
+ORDER BY ti.start_date DESC, ti.id DESC;
+
 SELECT 'PATIENT_ENCOUNTERS_SEARCH';
 SELECT e.id, e.patient_id, e.doctor_id, e.bed_id, e.type, e.start_datetime, e.end_datetime, s.name AS doctor_name
 FROM encounters e
@@ -161,6 +194,15 @@ AND (
   )
 )
 ORDER BY e.start_datetime DESC;
+
+SELECT 'PATIENT_DIAGNOSES';
+SELECT dg.id, dg.patient_id, dg.encounter_id, dg.icd10_code, dg.diagnosis_type, dg.diagnosed_at, dg.notes,
+       s.name AS doctor_name, e.type AS encounter_type, e.start_datetime AS encounter_start
+FROM diagnoses dg
+JOIN encounters e ON e.id = dg.encounter_id
+JOIN staff s ON s.id = e.doctor_id
+WHERE e.patient_id = %s
+ORDER BY dg.diagnosed_at DESC, dg.id DESC;
 
 SELECT 'PATIENT_TREATMENTS';
 SELECT ti.id, ti.encounter_id, ti.procedure_id, ti.medication_id, ti.start_date, ti.end_date, ti.frequency, ti.type, ti.note,

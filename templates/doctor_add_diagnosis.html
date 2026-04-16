@@ -21,7 +21,12 @@
         </div>
         <div class="field">
           <label>Тип диагноза</label>
-          <input type="text" name="diagnosis_type" value="{{ form_data.diagnosis_type }}" placeholder="primary / secondary / followup" required>
+          <select name="diagnosis_type" required>
+            <option value="">Выберите тип</option>
+            {% for type_code, type_title in diagnosis_type_choices %}
+              <option value="{{ type_code }}" {% if form_data.diagnosis_type == type_code %}selected{% endif %}>{{ type_title }}</option>
+            {% endfor %}
+          </select>
         </div>
         <div class="field">
           <label>Дата и время</label>

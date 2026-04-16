@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card stack">
+    <div class="section-head">
+      <div>
+        <h1>Прием #{{ encounter.id }}</h1>
+        <p class="muted">Пациент: {{ patient.name }}. На этом шаге можно добавить несколько диагнозов и назначений в рамках одного приема.</p>
+      </div>
+      <div class="actions">
+        <a class="btn ghost" href="{{ url_for('doctor_patient', patient_id=patient.id) }}">К карточке пациента</a>
+        <form method="post" style="display:inline;">
+          <input type="hidden" name="action" value="finish">
+          <button class="btn" type="submit">Завершить</button>
+        </form>
+      </div>
+    </div>
+    <div class="summary-grid">
+      <div class="summary-item">
+        <div class="summary-label">Тип приема</div>
+        <div>{{ encounter.type }}</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-label">Дата начала</div>
+        <div>{{ encounter.start_datetime|ui_date }}</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-label">Дата окончания</div>
+        <div>{{ encounter.end_datetime|ui_date }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 18px;">
+    <div class="card stack">
+      <div class="section-head">
+        <div>
+          <h2>Добавить диагноз</h2>
+        </div>
+      </div>
+      {% if diagnosis_error %}
+        <div class="alert">{{ diagnosis_error }}</div>
+      {% endif %}
+      <form method="post" class="stack">
+        <input type="hidden" name="action" value="add_diagnosis">
+        <div class="grid">
+          <div class="field">
+            <label>Код МКБ-10</label>
+            <input type="text" name="icd10_code" value="{{ diagnosis_form.icd10_code }}" required>
+          </div>
+          <div class="field">
+            <label>Тип диагноза</label>
+            <select name="diagnosis_type" required>
+              <option value="">Выберите тип</option>
+              {% for type_code, type_title in diagnosis_type_choices %}
+                <option value="{{ type_code }}" {% if diagnosis_form.diagnosis_type == type_code %}selected{% endif %}>{{ type_title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label>Дата и время</label>
+            <input type="datetime-local" name="diagnosed_at" value="{{ diagnosis_form.diagnosed_at }}" required>
+          </div>
+        </div>
+        <div class="field">
+          <label>Описание</label>
+          <textarea name="notes" required>{{ diagnosis_form.notes }}</textarea>
+        </div>
+        <div class="actions">
+          <button class="btn" type="submit">Добавить диагноз</button>
+        </div>
+      </form>
+      {% if diagnoses %}
+        <div class="table-wrap">
+          <table>
+            <tr>
+              <th>ID</th>
+              <th>Код</th>
+              <th>Тип</th>
+              <th>Дата</th>
+            </tr>
+            {% for d in diagnoses %}
+              <tr>
+                <td>{{ d.id }}</td>
+                <td>{{ d.icd10_code }}</td>
+                <td>{{ d.diagnosis_type_ru }}</td>
+                <td>{{ d.diagnosed_at|ui_date }}</td>
+              </tr>
+            {% endfor %}
+          </table>
+        </div>
+      {% else %}
+        <div class="empty">Диагнозы для этого приема пока не добавлены.</div>
+      {% endif %}
+    </div>
+
+    <div class="card stack">
+      <div class="section-head">
+        <div>
+          <h2>Добавить назначение</h2>
+        </div>
+      </div>
+      {% if treatment_error %}
+        <div class="alert">{{ treatment_error }}</div>
+      {% endif %}
+      <form method="post" class="stack">
+        <input type="hidden" name="action" value="add_treatment">
+        <div class="grid">
+          <div class="field">
+            <label>Режим назначения</label>
+            <select name="assignment_kind" id="assignment_kind">
+              <option value="procedure" {% if treatment_form.assignment_kind == 'procedure' %}selected{% endif %}>Процедура</option>
+              <option value="medication" {% if treatment_form.assignment_kind == 'medication' %}selected{% endif %}>Лекарство</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Процедура</label>
+            <select name="procedure_id" id="procedure_id">
+              <option value="">Не выбрано</option>
+              {% for procedure in procedures %}
+                <option value="{{ procedure.id }}" {% if treatment_form.procedure_id == procedure.id|string %}selected{% endif %}>
+                  {{ procedure.name }} ({{ procedure.code }})
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label>Лекарство</label>
+            <select name="medication_id" id="medication_id">
+              <option value="">Не выбрано</option>
+              {% for medication in medications %}
+                <option value="{{ medication.id }}" {% if treatment_form.medication_id == medication.id|string %}selected{% endif %}>
+                  {{ medication.name }} ({{ medication.form }} {{ medication.strength }})
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label>Дата начала</label>
+            <input type="date" name="start_date" value="{{ treatment_form.start_date }}" required>
+          </div>
+          <div class="field">
+            <label>Дата окончания</label>
+            <input type="date" name="end_date" value="{{ treatment_form.end_date }}" required>
+          </div>
+          <div class="field">
+            <label>Частота</label>
+            <input type="text" name="frequency" value="{{ treatment_form.frequency }}" placeholder="once_daily / one_time" required>
+          </div>
+          <div class="field">
+            <label>Тип назначения</label>
+            <input type="text" name="type" value="{{ treatment_form.type }}" placeholder="procedure / medication" required>
+          </div>
+        </div>
+        <div class="field">
+          <label>Примечание</label>
+          <textarea name="note" required>{{ treatment_form.note }}</textarea>
+        </div>
+        <div class="actions">
+          <button class="btn" type="submit">Добавить назначение</button>
+        </div>
+      </form>
+      {% if treatments %}
+        <div class="table-wrap">
+          <table>
+            <tr>
+              <th>ID</th>
+              <th>Назначение</th>
+              <th>Период</th>
+              <th>Частота</th>
+              <th>Тип</th>
+            </tr>
+            {% for t in treatments %}
+              <tr>
+                <td>{{ t.id }}</td>
+                <td>
+                  {% if t.procedure_name %}
+                    Процедура: {{ t.procedure_name }}
+                  {% else %}
+                    Лекарство: {{ t.medication_name }}
+                  {% endif %}
+                </td>
+                <td>{{ t.start_date|ui_date }} - {{ t.end_date|ui_date }}</td>
+                <td>{{ t.frequency_ru }}</td>
+                <td>{{ t.assignment_type_ru }}</td>
+              </tr>
+            {% endfor %}
+          </table>
+        </div>
+      {% else %}
+        <div class="empty">Назначения для этого приема пока не добавлены.</div>
+      {% endif %}
+    </div>
+  </div>
+  <script>
+    (function () {
+      const mode = document.getElementById("assignment_kind");
+      const procedureInput = document.getElementById("procedure_id");
+      const medicationInput = document.getElementById("medication_id");
+      if (!mode || !procedureInput || !medicationInput) return;
+      function syncMode() {
+        if (mode.value === "procedure") {
+          medicationInput.value = "";
+        } else {
+          procedureInput.value = "";
+        }
+      }
+      mode.addEventListener("change", syncMode);
+      syncMode();
+    })();
+  </script>
+{% endblock %}

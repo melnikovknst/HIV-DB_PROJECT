@@ -34,6 +34,12 @@ ASSIGNMENT_TYPE_LABELS = {
     "procedure": "Процедура",
     "medication": "Медикамент",
 }
+DIAGNOSIS_TYPE_CHOICES = [
+    ("primary", "Основной"),
+    ("secondary", "Сопутствующий"),
+    ("followup", "Повторный"),
+]
+DIAGNOSIS_TYPE_LABELS = {code: label for code, label in DIAGNOSIS_TYPE_CHOICES}
 
 
 def load_selects(path):
@@ -127,6 +133,7 @@ def doctor_nav():
 def patient_nav():
     return [
         (url_for("patient_encounters"), "Мои приемы"),
+        (url_for("patient_diagnoses"), "Мои диагнозы"),
         (url_for("patient_treatments"), "Мои назначения"),
         (url_for("logout"), "Выход"),
     ]
@@ -335,6 +342,8 @@ def validate_diagnosis_form(form_data):
         return "Укажите код МКБ-10", None
     if not form_data["diagnosis_type"]:
         return "Укажите тип диагноза", None
+    if form_data["diagnosis_type"] not in DIAGNOSIS_TYPE_LABELS:
+        return "Выберите тип диагноза из списка", None
     if not diagnosed_at:
         return "Укажите корректные дату и время постановки диагноза", None
     if not form_data["notes"]:
@@ -483,6 +492,8 @@ def doctor_patient(patient_id):
     patient = get_doctor_patient_or_404(patient_id)
     encounters = db.query(SELECTS["DOCTOR_PATIENT_ENCOUNTERS"], [session["doctor_id"], patient_id])
     diagnoses = db.query(SELECTS["DOCTOR_PATIENT_DIAGNOSES"], [session["doctor_id"], patient_id])
+    for row in diagnoses:
+        row["diagnosis_type_ru"] = DIAGNOSIS_TYPE_LABELS.get(row["diagnosis_type"], row["diagnosis_type"])
     treatments = db.query(SELECTS["DOCTOR_PATIENT_TREATMENTS"], [session["doctor_id"], patient_id])
     return render_doctor(
         "doctor_patient.html",
@@ -520,8 +531,8 @@ def doctor_create_encounter():
                     cleaned["end_datetime"],
                 ],
             )
-            flash(f"Прием #{new_id} создан")
-            return redirect(url_for("doctor_patient", patient_id=cleaned["patient_id"]))
+            flash(f"Прием #{new_id} создан. Добавьте диагнозы и назначения.")
+            return redirect(url_for("doctor_compose_encounter", encounter_id=new_id))
     return render_doctor(
         "doctor_create_encounter.html",
         title="Новый прием",
@@ -531,6 +542,100 @@ def doctor_create_encounter():
         patients=patients,
         beds=get_free_beds(),
         encounter_type_choices=ENCOUNTER_TYPE_CHOICES,
+    )
+
+
+@app.route("/doctor/encounter/<int:encounter_id>/compose", methods=["GET", "POST"])
+def doctor_compose_encounter(encounter_id):
+    if not require_doctor():
+        abort(403)
+    encounter = get_doctor_encounter_or_404(encounter_id)
+    patient = get_doctor_patient_or_404(encounter["patient_id"])
+    diagnosis_error = ""
+    treatment_error = ""
+    diagnosis_form = {
+        "icd10_code": "",
+        "diagnosis_type": "",
+        "diagnosed_at": encounter["start_datetime"].strftime("%Y-%m-%dT%H:%M"),
+        "notes": "",
+    }
+    treatment_form = {
+        "assignment_kind": "procedure",
+        "procedure_id": "",
+        "medication_id": "",
+        "start_date": encounter["start_datetime"].date().isoformat(),
+        "end_date": encounter["end_datetime"].date().isoformat(),
+        "frequency": "",
+        "type": "",
+        "note": "",
+    }
+    if request.method == "POST":
+        action = request.form.get("action", "").strip()
+        if action == "finish":
+            return redirect(url_for("doctor_patient", patient_id=patient["id"]))
+        if action == "add_diagnosis":
+            diagnosis_form = build_diagnosis_form_data(request.form)
+            diagnosis_error, cleaned = validate_diagnosis_form(diagnosis_form)
+            if not diagnosis_error:
+                new_id = next_id("NEXT_DIAGNOSIS_ID")
+                db.execute(
+                    "INSERT INTO diagnoses(id, patient_id, encounter_id, icd10_code, diagnosis_type, diagnosed_at, notes) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                    [
+                        new_id,
+                        patient["id"],
+                        encounter_id,
+                        cleaned["icd10_code"],
+                        cleaned["diagnosis_type"],
+                        cleaned["diagnosed_at"],
+                        cleaned["notes"],
+                    ],
+                )
+                flash(f"Диагноз #{new_id} добавлен")
+                return redirect(url_for("doctor_compose_encounter", encounter_id=encounter_id))
+        elif action == "add_treatment":
+            treatment_form = build_treatment_form_data(request.form)
+            treatment_error, cleaned = validate_treatment_form(treatment_form)
+            if not treatment_error:
+                new_id = next_id("NEXT_TREATMENT_ID")
+                db.execute(
+                    "INSERT INTO treatment_items(id, encounter_id, procedure_id, medication_id, start_date, end_date, frequency, type, note) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    [
+                        new_id,
+                        encounter_id,
+                        cleaned["procedure_id"],
+                        cleaned["medication_id"],
+                        cleaned["start_date"],
+                        cleaned["end_date"],
+                        cleaned["frequency"],
+                        cleaned["type"],
+                        cleaned["note"],
+                    ],
+                )
+                flash(f"Назначение #{new_id} добавлено")
+                return redirect(url_for("doctor_compose_encounter", encounter_id=encounter_id))
+        else:
+            diagnosis_error = "Некорректное действие формы"
+    diagnoses = db.query(SELECTS["DOCTOR_ENCOUNTER_DIAGNOSES"], [encounter_id, session["doctor_id"]])
+    treatments = db.query(SELECTS["DOCTOR_ENCOUNTER_TREATMENTS"], [encounter_id, session["doctor_id"]])
+    for row in diagnoses:
+        row["diagnosis_type_ru"] = DIAGNOSIS_TYPE_LABELS.get(row["diagnosis_type"], row["diagnosis_type"])
+    for row in treatments:
+        row["frequency_ru"] = FREQUENCY_LABELS.get(row["frequency"], row["frequency"])
+        row["assignment_type_ru"] = ASSIGNMENT_TYPE_LABELS.get(row["type"], row["type"])
+    return render_doctor(
+        "doctor_compose_encounter.html",
+        title=f"Наполнение приема #{encounter_id}",
+        encounter=encounter,
+        patient=patient,
+        diagnosis_error=diagnosis_error,
+        treatment_error=treatment_error,
+        diagnosis_form=diagnosis_form,
+        treatment_form=treatment_form,
+        diagnoses=diagnoses,
+        treatments=treatments,
+        diagnosis_type_choices=DIAGNOSIS_TYPE_CHOICES,
+        procedures=get_procedures(),
+        medications=get_medications(),
     )
 
 
@@ -618,6 +723,7 @@ def doctor_add_diagnosis(encounter_id):
         patient=patient,
         error=error,
         form_data=form_data,
+        diagnosis_type_choices=DIAGNOSIS_TYPE_CHOICES,
     )
 
 
@@ -677,6 +783,7 @@ def patient_encounters():
     if not require_patient():
         abort(403)
     search_field = request.args.get("search_field", "doctor").strip()
+    focus_encounter_id = parse_int(request.args.get("focus_encounter", "").strip())
     search_query = request.args.get("search_query", "").strip()
     if search_field == "doctor" and not search_query:
         search_query = request.args.get("search_query_text", "").strip()
@@ -708,16 +815,54 @@ def patient_encounters():
         )
     for row in rows:
         row["type_ru"] = ENCOUNTER_TYPE_LABELS.get(row["type"], row["type"])
+        row["is_focused"] = bool(focus_encounter_id) and row["id"] == focus_encounter_id
+    details_by_encounter = {row["id"]: {"diagnoses": [], "treatments": []} for row in rows}
+    if details_by_encounter:
+        diagnosis_rows = db.query(SELECTS["PATIENT_ENCOUNTER_DETAILS_DIAGNOSES"], [session["patient_id"]])
+        treatment_rows = db.query(SELECTS["PATIENT_ENCOUNTER_DETAILS_TREATMENTS"], [session["patient_id"]])
+        for row in diagnosis_rows:
+            bucket = details_by_encounter.get(row["encounter_id"])
+            if bucket is None:
+                continue
+            diagnosis_type_ru = DIAGNOSIS_TYPE_LABELS.get(row["diagnosis_type"], row["diagnosis_type"])
+            diagnosis_title = f"{row['icd10_code']} ({diagnosis_type_ru})"
+            bucket["diagnoses"].append({"id": row["id"], "title": diagnosis_title})
+        for row in treatment_rows:
+            bucket = details_by_encounter.get(row["encounter_id"])
+            if bucket is None:
+                continue
+            treatment_title = row["procedure_name"] or row["medication_name"] or "Назначение"
+            bucket["treatments"].append({"id": row["id"], "title": treatment_title})
     return render_patient(
         "patient_encounters.html",
         title="Мои приемы",
         encounters=rows,
+        details_by_encounter=details_by_encounter,
         search_field=search_field,
         search_query=search_query,
         search_error=search_error,
         date_from=date_from,
         date_to=date_to,
+        focus_encounter_id=focus_encounter_id,
         encounter_type_choices=ENCOUNTER_TYPE_CHOICES,
+    )
+
+
+@app.route("/patient/diagnoses")
+def patient_diagnoses():
+    if not require_patient():
+        abort(403)
+    focus_id = parse_int(request.args.get("focus", "").strip())
+    rows = db.query(SELECTS["PATIENT_DIAGNOSES"], [session["patient_id"]])
+    for row in rows:
+        row["encounter_type_ru"] = ENCOUNTER_TYPE_LABELS.get(row["encounter_type"], row["encounter_type"])
+        row["diagnosis_type_ru"] = DIAGNOSIS_TYPE_LABELS.get(row["diagnosis_type"], row["diagnosis_type"])
+        row["is_focused"] = bool(focus_id) and row["id"] == focus_id
+    return render_patient(
+        "patient_diagnoses.html",
+        title="Мои диагнозы",
+        diagnoses=rows,
+        focus_id=focus_id,
     )
 
 
@@ -725,6 +870,7 @@ def patient_encounters():
 def patient_treatments():
     if not require_patient():
         abort(403)
+    focus_id = parse_int(request.args.get("focus", "").strip())
     only_active = request.args.get("only_active", "").strip() == "1"
     rows = db.query(SELECTS["PATIENT_TREATMENTS"], [session["patient_id"]])
     today = date.today()
@@ -733,6 +879,7 @@ def patient_treatments():
         row["frequency_ru"] = FREQUENCY_LABELS.get(row["frequency"], row["frequency"])
         row["type_ru"] = ENCOUNTER_TYPE_LABELS.get(row["encounter_type"], row["encounter_type"])
         row["assignment_type_ru"] = ASSIGNMENT_TYPE_LABELS.get(row["type"], row["type"])
+        row["is_focused"] = bool(focus_id) and row["id"] == focus_id
         row["is_expired"] = row["end_date"] < today
         if only_active and row["is_expired"]:
             continue
@@ -742,6 +889,7 @@ def patient_treatments():
         title="Мои назначения",
         treatments=normalized_rows,
         only_active=only_active,
+        focus_id=focus_id,
     )
 
 
