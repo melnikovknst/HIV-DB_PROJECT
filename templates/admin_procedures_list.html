@@ -1,20 +1,19 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="card stack">
-  <div class="section-head"><div><h1>Процедуры</h1></div><div class="actions"><a class="btn" href="{{ url_for('admin_procedures_new') }}">Добавить процедуру</a></div></div>
+  <div class="section-head"><div><h1>Процедуры</h1><p class="muted">Найдено: {{ items|length }}</p></div><div class="actions"><a class="btn" href="{{ url_for('admin_procedures_new') }}">Добавить процедуру</a></div></div>
   <form method="get" class="stack">
     <div class="grid">
-      <div class="field">
-        <label>Поле поиска</label>
-        <select name="search_field" id="search_field">
-          <option value="" {% if not search_field %}selected{% endif %}>Выберите поле</option>
+        <div class="field">
+          <label>Поле поиска</label>
+          <select name="search_field" id="search_field">
           <option value="id" {% if search_field == 'id' %}selected{% endif %}>ID</option>
           <option value="code" {% if search_field == 'code' %}selected{% endif %}>Код</option>
           <option value="name" {% if search_field == 'name' %}selected{% endif %}>Название</option>
           <option value="duration" {% if search_field == 'duration' %}selected{% endif %}>Длительность</option>
         </select>
       </div>
-      <div class="field" id="search_text_field" style="display:none;">
+      <div class="field" id="search_text_field">
         <label id="search_label">Запрос</label>
         <input type="text" name="search_query_text" id="search_query_text" value="{{ search_query }}">
       </div>
@@ -26,7 +25,7 @@
       <a class="btn ghost" href="{{ url_for('admin_procedures_list') }}">Сбросить</a>
     </div>
   </form>
-  <div class="table-wrap"><table><tr><th>ID</th><th>Код</th><th>Название</th><th>Длительность</th><th>Использований</th><th></th></tr>{% for i in items %}<tr class="{% if i.is_focused %}focus-row{% endif %}" data-focused="{{ '1' if i.is_focused else '0' }}"><td>{{ i.id }}</td><td>{{ i.code }}</td><td><a href="{{ url_for('admin_procedure_detail', procedure_id=i.id) }}">{{ i.name }}</a></td><td>{{ i.default_duration_min }} мин</td><td>{{ i.usage_count }}</td><td><a class="btn ghost small" href="{{ url_for('admin_procedure_edit', procedure_id=i.id) }}">Редактировать</a></td></tr>{% endfor %}</table></div>
+  <div class="table-wrap"><table><tr><th>ID</th><th>Код</th><th>Название</th><th>Длительность</th><th>Использований</th><th></th></tr>{% for i in items %}<tr class="{% if i.is_focused %}focus-row{% endif %}" data-focused="{{ '1' if i.is_focused else '0' }}"><td>{{ i.id }}</td><td>{{ i.code }}</td><td><a href="{{ url_for('admin_procedure_detail', procedure_id=i.id) }}">{{ i.name }}</a></td><td>{{ i.default_duration_min }} мин</td><td><a href="{{ url_for('admin_procedure_detail', procedure_id=i.id) }}">{{ i.usage_count }}</a></td><td><a class="btn ghost small" href="{{ url_for('admin_procedure_edit', procedure_id=i.id) }}">Редактировать</a></td></tr>{% endfor %}</table></div>
 </div>
 <style>.focus-row{outline:2px solid rgba(58,90,64,.35);outline-offset:-2px;background:linear-gradient(90deg, rgba(126,168,110,.22), rgba(163,177,138,.18));}</style>
 <script>

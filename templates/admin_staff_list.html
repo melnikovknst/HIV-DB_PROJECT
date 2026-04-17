@@ -2,7 +2,7 @@
 {% block content %}
   <div class="card stack">
     <div class="section-head">
-      <div><h1>Сотрудники</h1></div>
+      <div><h1>Сотрудники</h1><p class="muted">Найдено: {{ items|length }}</p></div>
       <div class="actions"><a class="btn" href="{{ url_for('admin_staff_new') }}">Добавить сотрудника</a></div>
     </div>
     <form method="get" class="stack">
@@ -10,15 +10,15 @@
         <div class="field">
           <label>Поле поиска</label>
           <select name="search_field" id="search_field">
-            <option value="" {% if not search_field %}selected{% endif %}>Выберите поле</option>
             <option value="id" {% if search_field == 'id' %}selected{% endif %}>ID</option>
             <option value="name" {% if search_field == 'name' %}selected{% endif %}>ФИО</option>
             <option value="email" {% if search_field == 'email' %}selected{% endif %}>Email</option>
             <option value="department" {% if search_field == 'department' %}selected{% endif %}>Отделение</option>
             <option value="institution" {% if search_field == 'institution' %}selected{% endif %}>Учреждение</option>
+            <option value="specialization" {% if search_field == 'specialization' %}selected{% endif %}>Специализация</option>
           </select>
         </div>
-        <div class="field" id="search_text_field" style="display:none;">
+        <div class="field" id="search_text_field">
           <label id="search_label">Запрос</label>
           <input type="text" name="search_query_text" id="search_query_text" value="{{ search_query }}">
         </div>
@@ -62,20 +62,22 @@
       const label = document.getElementById("search_label");
       const error = document.getElementById("search_error");
       const form = field.form;
-      const labels = {id: "ID", name: "ФИО", email: "Email", department: "Отделение", institution: "Учреждение"};
+      const labels = {id: "ID", name: "ФИО", email: "Email", department: "Отделение", institution: "Учреждение", specialization: "Специализация"};
       const patterns = {
         id: /^\d{1,10}$/,
         name: /^[A-Za-zА-Яа-яЁё\s-]{2,120}$/,
         email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
         department: /^.{2,120}$/,
-        institution: /^.{2,120}$/
+        institution: /^.{2,120}$/,
+        specialization: /^.{2,120}$/
       };
       const messages = {
         id: "ID: только цифры",
         name: "ФИО: минимум 2 символа, буквы/пробел/дефис",
         email: "Email в формате name@example.com",
         department: "Название отделения: минимум 2 символа",
-        institution: "Название учреждения: минимум 2 символа"
+        institution: "Название учреждения: минимум 2 символа",
+        specialization: "Специализация: минимум 2 символа"
       };
       function sync() {
         const key = field.value;

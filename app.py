@@ -52,20 +52,53 @@ STAFF_TYPE_CHOICES = [
 ]
 STAFF_TYPE_LABELS = {code: label for code, label in STAFF_TYPE_CHOICES}
 INSTITUTION_TYPE_CHOICES = [
-    ("Hospital", "Больница"),
-    ("Center", "Центр"),
-    ("Polyclinic", "Поликлиника"),
-    ("Clinic", "Клиника"),
+    ("district_hospital", "Районная больница"),
+    ("city_hospital", "Городская больница"),
+    ("regional_hospital", "Областная больница"),
+    ("hospital", "Больница"),
+    ("polyclinic", "Поликлиника"),
+    ("clinic", "Клиника"),
+    ("diagnostic_center", "Диагностический центр"),
+    ("private_center", "Частный медицинский центр"),
+    ("children_hospital", "Детская больница"),
+    ("infectious_hospital", "Инфекционная больница"),
+    ("dispensary", "Диспансер"),
+    ("surgery_center", "Хирургический центр"),
+    ("perinatal_center", "Перинатальный центр"),
+    ("rehab_center", "Реабилитационный центр"),
+    ("center", "Медицинский центр"),
 ]
-INSTITUTION_TYPE_LABELS = {code: label for code, label in INSTITUTION_TYPE_CHOICES}
+INSTITUTION_TYPE_LABELS = {
+    **{code: label for code, label in INSTITUTION_TYPE_CHOICES},
+    "Hospital": "Больница",
+    "Center": "Центр",
+    "Polyclinic": "Поликлиника",
+    "Clinic": "Клиника",
+    "hospital": "Больница",
+    "center": "Центр",
+    "polyclinic": "Поликлиника",
+    "clinic": "Клиника",
+}
 DEPARTMENT_TYPE_CHOICES = [
-    ("Inpatient", "Стационар"),
-    ("Outpatient", "Амбулаторное"),
-    ("Diagnostic", "Диагностическое"),
-    ("DayCare", "Дневной стационар"),
-    ("Emergency", "Экстренное"),
+    ("admission", "Приемное отделение"),
+    ("inpatient", "Стационар"),
+    ("outpatient", "Амбулаторное"),
+    ("diagnostic", "Диагностическое"),
+    ("day_hospital", "Дневной стационар"),
+    ("emergency", "Экстренное"),
+    ("icu", "Реанимация"),
+    ("surgery_support", "Хирургическая поддержка"),
+    ("rehab", "Реабилитационное"),
+    ("laboratory", "Лаборатория"),
 ]
-DEPARTMENT_TYPE_LABELS = {code: label for code, label in DEPARTMENT_TYPE_CHOICES}
+DEPARTMENT_TYPE_LABELS = {
+    **{code: label for code, label in DEPARTMENT_TYPE_CHOICES},
+    "Inpatient": "Стационар",
+    "Outpatient": "Амбулаторное",
+    "Diagnostic": "Диагностическое",
+    "DayCare": "Дневной стационар",
+    "Emergency": "Экстренное",
+}
 
 
 def load_selects(path):
@@ -354,7 +387,7 @@ def validate_admin_search(search_field, search_query, default_field, allowed_fie
     field = (search_field or "").strip().lower()
     query = (search_query or "").strip()
     if not field:
-        return "", query, ""
+        return default_field, query, ""
     if field not in allowed_fields:
         return default_field, query, "Некорректное поле поиска"
     if query == "":
@@ -1004,17 +1037,18 @@ def admin_dashboard():
 def admin_staff_list():
     if not require_admin():
         abort(403)
-    search_field = request.args.get("search_field", "").strip().lower()
+    search_field = request.args.get("search_field", "name").strip().lower()
     search_query = request.args.get("search_query", "").strip()
     if not search_query:
         search_query = request.args.get("search_query_text", "").strip()
-    allowed_fields = {"id", "name", "email", "department", "institution"}
+    allowed_fields = {"id", "name", "email", "department", "institution", "specialization"}
     patterns = {
         "id": r"^\d{1,10}$",
         "name": r"^[A-Za-zА-Яа-яЁё\s\-]{2,120}$",
         "email": r"^[^\s@]+@[^\s@]+\.[^\s@]+$",
         "department": r"^.{2,120}$",
         "institution": r"^.{2,120}$",
+        "specialization": r"^.{2,120}$",
     }
     messages = {
         "id": "ID: только цифры",
@@ -1022,6 +1056,7 @@ def admin_staff_list():
         "email": "Email в формате name@example.com",
         "department": "Название отделения: минимум 2 символа",
         "institution": "Название учреждения: минимум 2 символа",
+        "specialization": "Специализация: минимум 2 символа",
     }
     search_field, search_query, search_error = validate_admin_search(
         search_field, search_query, "name", allowed_fields, patterns, messages
@@ -1055,6 +1090,16 @@ def admin_staff_list():
               OR (%s = 'email' AND LOWER(s.email) LIKE LOWER(%s))
               OR (%s = 'department' AND LOWER(d.name) LIKE LOWER(%s))
               OR (%s = 'institution' AND LOWER(mi.name) LIKE LOWER(%s))
+              OR (
+                %s = 'specialization'
+                AND EXISTS (
+                  SELECT 1
+                  FROM doctors_specializations ds2
+                  JOIN specializations sp2 ON sp2.id = ds2.specialization_id
+                  WHERE ds2.doctor_id = s.id
+                    AND (LOWER(sp2.name) LIKE LOWER(%s) OR LOWER(sp2.code) LIKE LOWER(%s))
+                )
+              )
             )
             ORDER BY s.name, s.id
             """,
@@ -1065,6 +1110,7 @@ def admin_staff_list():
                 search_field, wildcard,
                 search_field, wildcard,
                 search_field, wildcard,
+                search_field, wildcard, wildcard,
             ],
         )
     for row in rows:
@@ -1270,7 +1316,7 @@ def admin_staff_edit(staff_id):
 def admin_institutions_list():
     if not require_admin():
         abort(403)
-    search_field = request.args.get("search_field", "").strip().lower()
+    search_field = request.args.get("search_field", "name").strip().lower()
     search_query = request.args.get("search_query", "").strip()
     if not search_query:
         search_query = request.args.get("search_query_text", "").strip()
@@ -1306,7 +1352,36 @@ def admin_institutions_list():
               %s = ''
               OR (%s = 'id' AND CAST(mi.id AS TEXT) = %s)
               OR (%s = 'name' AND LOWER(mi.name) LIKE LOWER(%s))
-              OR (%s = 'type' AND LOWER(mi.type) LIKE LOWER(%s))
+              OR (
+                %s = 'type'
+                AND (
+                  LOWER(mi.type) LIKE LOWER(%s)
+                  OR LOWER(
+                    CASE mi.type
+                      WHEN 'district_hospital' THEN 'Районная больница'
+                      WHEN 'city_hospital' THEN 'Городская больница'
+                      WHEN 'regional_hospital' THEN 'Областная больница'
+                      WHEN 'hospital' THEN 'Больница'
+                      WHEN 'polyclinic' THEN 'Поликлиника'
+                      WHEN 'clinic' THEN 'Клиника'
+                      WHEN 'diagnostic_center' THEN 'Диагностический центр'
+                      WHEN 'private_center' THEN 'Частный медицинский центр'
+                      WHEN 'children_hospital' THEN 'Детская больница'
+                      WHEN 'infectious_hospital' THEN 'Инфекционная больница'
+                      WHEN 'dispensary' THEN 'Диспансер'
+                      WHEN 'surgery_center' THEN 'Хирургический центр'
+                      WHEN 'perinatal_center' THEN 'Перинатальный центр'
+                      WHEN 'rehab_center' THEN 'Реабилитационный центр'
+                      WHEN 'center' THEN 'Медицинский центр'
+                      WHEN 'Hospital' THEN 'Больница'
+                      WHEN 'Center' THEN 'Центр'
+                      WHEN 'Polyclinic' THEN 'Поликлиника'
+                      WHEN 'Clinic' THEN 'Клиника'
+                      ELSE mi.type
+                    END
+                  ) LIKE LOWER(%s)
+                )
+              )
               OR (%s = 'phone' AND mi.phone LIKE %s)
               OR (%s = 'email' AND LOWER(mi.email) LIKE LOWER(%s))
             )
@@ -1316,7 +1391,7 @@ def admin_institutions_list():
                 search_query,
                 search_field, search_query,
                 search_field, wildcard,
-                search_field, wildcard,
+                search_field, wildcard, wildcard,
                 search_field, wildcard,
                 search_field, wildcard,
             ],
@@ -1423,7 +1498,7 @@ def admin_institution_edit(institution_id):
 def admin_departments_list():
     if not require_admin():
         abort(403)
-    search_field = request.args.get("search_field", "").strip().lower()
+    search_field = request.args.get("search_field", "name").strip().lower()
     search_query = request.args.get("search_query", "").strip()
     if not search_query:
         search_query = request.args.get("search_query_text", "").strip()
@@ -1461,7 +1536,32 @@ def admin_departments_list():
               OR (%s = 'id' AND CAST(d.id AS TEXT) = %s)
               OR (%s = 'name' AND LOWER(d.name) LIKE LOWER(%s))
               OR (%s = 'institution' AND LOWER(mi.name) LIKE LOWER(%s))
-              OR (%s = 'type' AND LOWER(d.type) LIKE LOWER(%s))
+              OR (
+                %s = 'type'
+                AND (
+                  LOWER(d.type) LIKE LOWER(%s)
+                  OR LOWER(
+                    CASE d.type
+                      WHEN 'admission' THEN 'Приемное отделение'
+                      WHEN 'inpatient' THEN 'Стационар'
+                      WHEN 'outpatient' THEN 'Амбулаторное'
+                      WHEN 'diagnostic' THEN 'Диагностическое'
+                      WHEN 'day_hospital' THEN 'Дневной стационар'
+                      WHEN 'emergency' THEN 'Экстренное'
+                      WHEN 'icu' THEN 'Реанимация'
+                      WHEN 'surgery_support' THEN 'Хирургическая поддержка'
+                      WHEN 'rehab' THEN 'Реабилитационное'
+                      WHEN 'laboratory' THEN 'Лаборатория'
+                      WHEN 'Inpatient' THEN 'Стационар'
+                      WHEN 'Outpatient' THEN 'Амбулаторное'
+                      WHEN 'Diagnostic' THEN 'Диагностическое'
+                      WHEN 'DayCare' THEN 'Дневной стационар'
+                      WHEN 'Emergency' THEN 'Экстренное'
+                      ELSE d.type
+                    END
+                  ) LIKE LOWER(%s)
+                )
+              )
               OR (%s = 'phone' AND d.phone LIKE %s)
             )
             ORDER BY mi.name, d.name, d.id
@@ -1471,7 +1571,7 @@ def admin_departments_list():
                 search_field, search_query,
                 search_field, wildcard,
                 search_field, wildcard,
-                search_field, wildcard,
+                search_field, wildcard, wildcard,
                 search_field, wildcard,
             ],
         )
@@ -1580,7 +1680,7 @@ def admin_department_edit(department_id):
 def admin_patients_list():
     if not require_admin():
         abort(403)
-    search_field = request.args.get("search_field", "").strip().lower()
+    search_field = request.args.get("search_field", "name").strip().lower()
     search_query = request.args.get("search_query", "").strip()
     if not search_query:
         search_query = request.args.get("search_query_text", "").strip()
@@ -1726,7 +1826,7 @@ def admin_patient_edit(patient_id):
 def admin_medications_list():
     if not require_admin():
         abort(403)
-    search_field = request.args.get("search_field", "").strip().lower()
+    search_field = request.args.get("search_field", "name").strip().lower()
     search_query = request.args.get("search_query", "").strip()
     if not search_query:
         search_query = request.args.get("search_query_text", "").strip()
@@ -1852,7 +1952,7 @@ def admin_medication_edit(medication_id):
 def admin_procedures_list():
     if not require_admin():
         abort(403)
-    search_field = request.args.get("search_field", "").strip().lower()
+    search_field = request.args.get("search_field", "name").strip().lower()
     search_query = request.args.get("search_query", "").strip()
     if not search_query:
         search_query = request.args.get("search_query_text", "").strip()
@@ -1980,7 +2080,7 @@ def admin_procedure_edit(procedure_id):
 def admin_specializations_list():
     if not require_admin():
         abort(403)
-    search_field = request.args.get("search_field", "").strip().lower()
+    search_field = request.args.get("search_field", "name").strip().lower()
     search_query = request.args.get("search_query", "").strip()
     if not search_query:
         search_query = request.args.get("search_query_text", "").strip()

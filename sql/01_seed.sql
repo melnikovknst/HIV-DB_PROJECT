@@ -1,17 +1,17 @@
 INSERT INTO medical_institutions(id, name, type, phone, email) VALUES
-(1, 'Novosibirsk City Clinical Hospital 1', 'Hospital', '+7-383-201-10-01', 'info@gkb1nsk.ru'),
-(2, 'Regional Infectious Disease Center', 'Center', '+7-383-201-10-02', 'contact@infectcenter54.ru'),
-(3, 'Central Polyclinic No 5', 'Polyclinic', '+7-383-201-10-03', 'registry@cp5nsk.ru'),
-(4, 'Ob River Medical Campus', 'Hospital', '+7-383-201-10-04', 'office@obmedcampus.ru'),
-(5, 'Siberian Preventive Clinic', 'Clinic', '+7-383-201-10-05', 'hello@spclinic.ru');
+(1, 'Novosibirsk City Clinical Hospital 1', 'city_hospital', '+7-383-201-10-01', 'info@gkb1nsk.ru'),
+(2, 'Regional Infectious Disease Center', 'center', '+7-383-201-10-02', 'contact@infectcenter54.ru'),
+(3, 'Central Polyclinic No 5', 'polyclinic', '+7-383-201-10-03', 'registry@cp5nsk.ru'),
+(4, 'Ob River Medical Campus', 'hospital', '+7-383-201-10-04', 'office@obmedcampus.ru'),
+(5, 'Siberian Preventive Clinic', 'clinic', '+7-383-201-10-05', 'hello@spclinic.ru');
 
 INSERT INTO departments(id, name, phone, type, institution_id) VALUES
-(1, 'Infectious Diseases Ward A', '+7-383-301-20-01', 'Inpatient', 1),
-(2, 'Outpatient HIV Care', '+7-383-301-20-02', 'Outpatient', 2),
-(3, 'Internal Medicine', '+7-383-301-20-03', 'Inpatient', 4),
-(4, 'Diagnostics Unit', '+7-383-301-20-04', 'Diagnostic', 3),
-(5, 'Day Hospital', '+7-383-301-20-05', 'DayCare', 5),
-(6, 'Emergency Intake', '+7-383-301-20-06', 'Emergency', 1);
+(1, 'Infectious Diseases Ward A', '+7-383-301-20-01', 'inpatient', 1),
+(2, 'Outpatient HIV Care', '+7-383-301-20-02', 'outpatient', 2),
+(3, 'Internal Medicine', '+7-383-301-20-03', 'inpatient', 4),
+(4, 'Diagnostics Unit', '+7-383-301-20-04', 'diagnostic', 3),
+(5, 'Day Hospital', '+7-383-301-20-05', 'day_hospital', 5),
+(6, 'Emergency Intake', '+7-383-301-20-06', 'emergency', 1);
 
 INSERT INTO beds(id, status, department_id) VALUES
 (1, 'free', 1),

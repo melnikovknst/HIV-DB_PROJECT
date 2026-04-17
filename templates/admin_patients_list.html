@@ -1,13 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="card stack">
-  <div class="section-head"><div><h1>Пациенты</h1></div><div class="actions"><a class="btn" href="{{ url_for('admin_patients_new') }}">Добавить пациента</a></div></div>
+  <div class="section-head"><div><h1>Пациенты</h1><p class="muted">Найдено: {{ items|length }}</p></div><div class="actions"><a class="btn" href="{{ url_for('admin_patients_new') }}">Добавить пациента</a></div></div>
   <form method="get" class="stack">
     <div class="grid">
-      <div class="field">
-        <label>Поле поиска</label>
-        <select name="search_field" id="search_field">
-          <option value="" {% if not search_field %}selected{% endif %}>Выберите поле</option>
+        <div class="field">
+          <label>Поле поиска</label>
+          <select name="search_field" id="search_field">
           <option value="id" {% if search_field == 'id' %}selected{% endif %}>ID</option>
           <option value="name" {% if search_field == 'name' %}selected{% endif %}>ФИО</option>
           <option value="phone" {% if search_field == 'phone' %}selected{% endif %}>Телефон</option>
@@ -16,7 +15,7 @@
           <option value="passport" {% if search_field == 'passport' %}selected{% endif %}>Паспорт</option>
         </select>
       </div>
-      <div class="field" id="search_text_field" style="display:none;">
+      <div class="field" id="search_text_field">
         <label id="search_label">Запрос</label>
         <input type="text" name="search_query_text" id="search_query_text" value="{{ search_query }}">
       </div>
