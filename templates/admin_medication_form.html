@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card stack">
+  <div class="section-head"><div><h1>{{ 'Редактирование препарата' if is_edit else 'Новый препарат' }}</h1></div><div class="actions">{% if is_edit %}<a class="btn ghost" href="{{ url_for('admin_medication_detail', medication_id=item_id) }}">К карточке</a>{% endif %}<a class="btn ghost" href="{{ url_for('admin_medications_list') }}">К списку</a></div></div>
+  {% if error %}<div class="alert">{{ error }}</div>{% endif %}
+  <form method="post" class="grid">
+    <div class="field"><label>Название</label><input type="text" name="name" value="{{ form_data.name }}" required></div>
+    <div class="field"><label>Форма</label><input type="text" name="form" value="{{ form_data.form }}" required></div>
+    <div class="field"><label>Дозировка</label><input type="text" name="strength" value="{{ form_data.strength }}" required></div>
+    <div class="actions"><button class="btn" type="submit">Сохранить</button></div>
+  </form>
+</div>
+{% endblock %}

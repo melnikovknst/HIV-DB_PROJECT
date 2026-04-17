@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card stack">
+  <div class="section-head"><div><h1>Отделение #{{ item.id }}</h1><p class="muted">{{ item.name }}</p></div><div class="actions"><a class="btn" href="{{ url_for('admin_department_edit', department_id=item.id) }}">Редактировать</a><a class="btn ghost" href="{{ url_for('admin_departments_list', focus=item.id) }}">К списку</a></div></div>
+  <div class="summary-grid">
+    <div class="summary-item"><div class="summary-label">Учреждение</div><div><a href="{{ url_for('admin_institutions_list', focus=item.institution_id) }}">{{ item.institution_name }}</a></div></div>
+    <div class="summary-item"><div class="summary-label">Тип</div><div>{{ item.type_ru }}</div></div>
+    <div class="summary-item"><div class="summary-label">Телефон</div><div>{{ item.phone }}</div></div>
+  </div>
+</div>
+<div class="card stack"><h2>Сотрудники отделения</h2><div class="table-wrap"><table><tr><th>ID</th><th>ФИО</th><th>Тип</th><th>Контакты</th></tr>{% for s in staff_rows %}<tr><td>{{ s.id }}</td><td><a href="{{ url_for('admin_staff_list', focus=s.id) }}">{{ s.name }}</a></td><td>{{ s.staff_type_ru }}</td><td>{{ s.phone }}<br><span class="muted">{{ s.email }}</span></td></tr>{% endfor %}</table></div></div>
+{% endblock %}

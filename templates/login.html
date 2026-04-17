@@ -4,23 +4,87 @@
     <div class="section-head">
       <div>
         <h1>Вход</h1>
-        <p class="muted">Выберите роль и укажите ID пользователя.</p>
+        <p class="muted">Выберите свою нишу.</p>
       </div>
     </div>
     {% if error %}
       <div class="alert">{{ error }}</div>
     {% endif %}
     <form method="post" class="stack">
-      <div class="grid">
-        <div class="field">
+      <div class="actions role-row" style="margin-top: 4px; gap: 10px; flex-wrap: nowrap; padding-top: 3px;">
+        <button class="btn ghost role-btn" style="padding: 12px 20px;" type="button" data-role-btn="doctor">Я врач</button>
+        <button class="btn ghost role-btn" style="padding: 12px 20px;" type="button" data-role-btn="patient">Я пациент</button>
+        <button class="btn ghost role-btn" style="padding: 12px 20px;" type="button" data-role-btn="admin">Я админ</button>
+      </div>
+      <div class="grid" id="credentials_grid" style="display:none;">
+        <div class="field" id="user_id_field">
           <label>ID</label>
-          <input type="number" name="user_id" required>
+          <input type="number" name="user_id" id="user_id_input">
+        </div>
+        <div class="field" id="admin_login_field" style="display:none;">
+          <label>Логин</label>
+          <input type="text" name="admin_login" id="admin_login_input" value="admin">
+        </div>
+        <div class="field" id="admin_password_field" style="display:none;">
+          <label>Пароль</label>
+          <input type="password" name="admin_password" id="admin_password_input" value="admin">
         </div>
       </div>
-      <div class="actions" style="margin-top: 10px; gap: 14px;">
-        <button class="btn" style="padding: 12px 20px;" type="submit" name="role" value="doctor">Я врач</button>
-        <button class="btn ghost" style="padding: 12px 20px;" type="submit" name="role" value="patient">Я пациент</button>
+      <input type="hidden" name="role" id="role_input" value="{{ selected_role if selected_role in ['doctor', 'patient', 'admin'] else '' }}">
+      <div class="actions" id="login_submit_wrap" style="display:none; margin-top: 6px;">
+        <button class="btn" style="padding: 12px 20px;" type="submit">Вход</button>
       </div>
     </form>
   </div>
+  <style>
+    .role-btn.active-role {
+      background: linear-gradient(135deg, var(--color-2), var(--color-3));
+      color: #fff;
+      border-color: var(--accent);
+    }
+  </style>
+  <script>
+    (function () {
+      const roleInput = document.getElementById("role_input");
+      const credentialsGrid = document.getElementById("credentials_grid");
+      const submitWrap = document.getElementById("login_submit_wrap");
+      const userField = document.getElementById("user_id_field");
+      const userInput = document.getElementById("user_id_input");
+      const loginField = document.getElementById("admin_login_field");
+      const loginInput = document.getElementById("admin_login_input");
+      const passField = document.getElementById("admin_password_field");
+      const passInput = document.getElementById("admin_password_input");
+      const btns = document.querySelectorAll("[data-role-btn]");
+      if (!roleInput) return;
+      function syncRole(role) {
+        const validRole = role === "doctor" || role === "patient" || role === "admin";
+        roleInput.value = validRole ? role : "";
+        credentialsGrid.style.display = validRole ? "" : "none";
+        submitWrap.style.display = validRole ? "" : "none";
+        btns.forEach(function (btn) {
+          btn.classList.toggle("active-role", validRole && btn.dataset.roleBtn === role);
+        });
+        if (!validRole) {
+          userInput.required = false;
+          loginInput.required = false;
+          passInput.required = false;
+          return;
+        }
+        roleInput.value = role;
+        const isAdmin = role === "admin";
+        userField.style.display = isAdmin ? "none" : "";
+        loginField.style.display = isAdmin ? "" : "none";
+        passField.style.display = isAdmin ? "" : "none";
+        userInput.required = !isAdmin;
+        loginInput.required = isAdmin;
+        passInput.required = isAdmin;
+      }
+      btns.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          syncRole(btn.dataset.roleBtn);
+        });
+      });
+      syncRole(roleInput.value || "");
+    })();
+  </script>
 {% endblock %}

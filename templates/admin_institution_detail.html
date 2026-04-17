@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card stack">
+  <div class="section-head"><div><h1>Учреждение #{{ item.id }}</h1><p class="muted">{{ item.name }}</p></div><div class="actions"><a class="btn" href="{{ url_for('admin_institution_edit', institution_id=item.id) }}">Редактировать</a><a class="btn ghost" href="{{ url_for('admin_institutions_list', focus=item.id) }}">К списку</a></div></div>
+  <div class="summary-grid">
+    <div class="summary-item"><div class="summary-label">Тип</div><div>{{ item.type_ru }}</div></div>
+    <div class="summary-item"><div class="summary-label">Телефон</div><div>{{ item.phone }}</div></div>
+    <div class="summary-item"><div class="summary-label">Email</div><div>{{ item.email }}</div></div>
+    <div class="summary-item"><div class="summary-label">Отделений</div><div>{{ item.departments_count }}</div></div>
+  </div>
+</div>
+<div class="card stack"><h2>Отделения</h2><div class="table-wrap"><table><tr><th>ID</th><th>Отделение</th><th>Тип</th><th>Телефон</th></tr>{% for d in departments %}<tr><td>{{ d.id }}</td><td><a href="{{ url_for('admin_departments_list', focus=d.id) }}">{{ d.name }}</a></td><td>{{ d.type_ru }}</td><td>{{ d.phone }}</td></tr>{% endfor %}</table></div></div>
+{% endblock %}

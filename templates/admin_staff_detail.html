@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card stack">
+  <div class="section-head">
+    <div><h1>Сотрудник #{{ item.id }}</h1><p class="muted">{{ item.name }}</p></div>
+    <div class="actions"><a class="btn" href="{{ url_for('admin_staff_edit', staff_id=item.id) }}">Редактировать</a><a class="btn ghost" href="{{ url_for('admin_staff_list', focus=item.id) }}">К списку</a></div>
+  </div>
+  <div class="summary-grid">
+    <div class="summary-item"><div class="summary-label">Тип</div><div>{{ item.staff_type_ru }}</div></div>
+    <div class="summary-item"><div class="summary-label">Телефон</div><div>{{ item.phone }}</div></div>
+    <div class="summary-item"><div class="summary-label">Email</div><div>{{ item.email }}</div></div>
+    <div class="summary-item"><div class="summary-label">Дата найма</div><div>{{ item.hire_date|ui_date }}</div></div>
+    <div class="summary-item"><div class="summary-label">ИНН</div><div>{{ item.inn }}</div></div>
+    <div class="summary-item"><div class="summary-label">Статус</div><div>{{ 'Нанят' if item.is_active else 'Не нанят' }}</div></div>
+    <div class="summary-item"><div class="summary-label">Отделение</div><div><a href="{{ url_for('admin_departments_list', focus=item.department_id) }}">{{ item.department_name }}</a></div></div>
+    <div class="summary-item"><div class="summary-label">Учреждение</div><div><a href="{{ url_for('admin_institutions_list', focus=item.institution_id) }}">{{ item.institution_name }}</a></div></div>
+    {% if item.experience_years is not none %}<div class="summary-item"><div class="summary-label">Стаж врача</div><div>{{ item.experience_years }} лет</div></div>{% endif %}
+    {% if item.license_number %}<div class="summary-item"><div class="summary-label">Номер лицензии</div><div>{{ item.license_number }}</div></div>{% endif %}
+    {% if item.specialization_name %}<div class="summary-item"><div class="summary-label">Специализация</div><div>{{ item.specialization_name }}</div></div>{% endif %}
+  </div>
+</div>
+{% endblock %}

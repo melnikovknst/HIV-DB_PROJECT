@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card stack">
+  <div class="section-head"><div><h1>{{ 'Редактирование процедуры' if is_edit else 'Новая процедура' }}</h1></div><div class="actions">{% if is_edit %}<a class="btn ghost" href="{{ url_for('admin_procedure_detail', procedure_id=item_id) }}">К карточке</a>{% endif %}<a class="btn ghost" href="{{ url_for('admin_procedures_list') }}">К списку</a></div></div>
+  {% if error %}<div class="alert">{{ error }}</div>{% endif %}
+  <form method="post" class="grid">
+    <div class="field"><label>Код</label><input type="text" name="code" value="{{ form_data.code }}" required></div>
+    <div class="field"><label>Название</label><input type="text" name="name" value="{{ form_data.name }}" required></div>
+    <div class="field"><label>Длительность (мин)</label><input type="number" min="1" name="default_duration_min" value="{{ form_data.default_duration_min }}" required></div>
+    <div class="actions"><button class="btn" type="submit">Сохранить</button></div>
+  </form>
+</div>
+{% endblock %}

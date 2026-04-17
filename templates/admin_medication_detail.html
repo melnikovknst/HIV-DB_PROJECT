@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card stack">
+  <div class="section-head"><div><h1>Препарат #{{ item.id }}</h1><p class="muted">{{ item.name }}</p></div><div class="actions"><a class="btn" href="{{ url_for('admin_medication_edit', medication_id=item.id) }}">Редактировать</a><a class="btn ghost" href="{{ url_for('admin_medications_list', focus=item.id) }}">К списку</a></div></div>
+  <div class="summary-grid"><div class="summary-item"><div class="summary-label">Форма</div><div>{{ item.form }}</div></div><div class="summary-item"><div class="summary-label">Дозировка</div><div>{{ item.strength }}</div></div></div>
+</div>
+<div class="card stack"><h2>Последние использования</h2><div class="table-wrap"><table><tr><th>ID назначения</th><th>Прием</th><th>Пациент</th><th>Период</th></tr>{% for u in usages %}<tr><td>{{ u.id }}</td><td>{{ u.encounter_id }}</td><td><a href="{{ url_for('admin_patients_list', focus=u.patient_id) }}">{{ u.patient_name }}</a></td><td>{{ u.start_date|ui_date }} - {{ u.end_date|ui_date }}</td></tr>{% endfor %}</table></div></div>
+{% endblock %}

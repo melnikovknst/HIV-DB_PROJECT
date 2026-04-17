@@ -34,7 +34,8 @@ CREATE TABLE IF NOT EXISTS staff(
 
 CREATE TABLE IF NOT EXISTS doctors(
   id int PRIMARY KEY REFERENCES staff(id),
-  experience_years int NOT NULL
+  experience_years int NOT NULL,
+  license_number varchar
 );
 
 CREATE TABLE IF NOT EXISTS specializations(

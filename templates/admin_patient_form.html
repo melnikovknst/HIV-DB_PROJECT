@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card stack">
+  <div class="section-head"><div><h1>{{ 'Редактирование пациента' if is_edit else 'Новый пациент' }}</h1></div><div class="actions">{% if is_edit %}<a class="btn ghost" href="{{ url_for('admin_patient_detail', patient_id=item_id) }}">К карточке</a>{% endif %}<a class="btn ghost" href="{{ url_for('admin_patients_list') }}">К списку</a></div></div>
+  {% if error %}<div class="alert">{{ error }}</div>{% endif %}
+  <form method="post" class="grid">
+    <div class="field"><label>ФИО</label><input type="text" name="name" value="{{ form_data.name }}" required></div>
+    <div class="field"><label>Пол</label><select name="sex" required><option value="">Выберите</option><option value="M" {% if form_data.sex == 'M' %}selected{% endif %}>М</option><option value="F" {% if form_data.sex == 'F' %}selected{% endif %}>Ж</option></select></div>
+    <div class="field"><label>Дата рождения</label><input type="date" name="birth_date" value="{{ form_data.birth_date }}" required></div>
+    <div class="field"><label>Телефон</label><input type="text" name="phone" value="{{ form_data.phone }}" required></div>
+    <div class="field"><label>Email</label><input type="email" name="email" value="{{ form_data.email }}" required></div>
+    <div class="field"><label>СНИЛС</label><input type="text" name="snus" value="{{ form_data.snus }}" required></div>
+    <div class="field"><label>Паспорт</label><input type="text" name="passport" value="{{ form_data.passport }}" required></div>
+    <div class="actions"><button class="btn" type="submit">Сохранить</button></div>
+  </form>
+</div>
+{% endblock %}

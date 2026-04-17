@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card stack">
+  <div class="section-head"><div><h1>Пациент #{{ item.id }}</h1><p class="muted">{{ item.name }}</p></div><div class="actions"><a class="btn" href="{{ url_for('admin_patient_edit', patient_id=item.id) }}">Редактировать</a><a class="btn ghost" href="{{ url_for('admin_patients_list', focus=item.id) }}">К списку</a></div></div>
+  <div class="summary-grid">
+    <div class="summary-item"><div class="summary-label">Пол</div><div>{{ 'М' if item.sex == 'M' else 'Ж' if item.sex == 'F' else item.sex }}</div></div>
+    <div class="summary-item"><div class="summary-label">Дата рождения</div><div>{{ item.birth_date|ui_date }}</div></div>
+    <div class="summary-item"><div class="summary-label">Телефон</div><div>{{ item.phone }}</div></div>
+    <div class="summary-item"><div class="summary-label">Email</div><div>{{ item.email }}</div></div>
+    <div class="summary-item"><div class="summary-label">СНИЛС</div><div>{{ item.snus }}</div></div>
+    <div class="summary-item"><div class="summary-label">Паспорт</div><div>{{ item.passport }}</div></div>
+  </div>
+</div>
+<div class="card stack"><h2>Приемы пациента</h2><div class="table-wrap"><table><tr><th>ID</th><th>Тип</th><th>Период</th><th>Врач</th></tr>{% for e in encounters %}<tr><td>{{ e.id }}</td><td>{{ e.type_ru }}</td><td>{{ e.start_datetime|ui_date }} - {{ e.end_datetime|ui_date }}</td><td><a href="{{ url_for('admin_staff_list', focus=e.doctor_id) }}">{{ e.doctor_name }}</a></td></tr>{% endfor %}</table></div></div>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card stack">
+    <div class="section-head">
+      <div>
+        <h1>Админ-панель</h1>
+        <p class="muted">Управление справочниками и пользователями системы.</p>
+      </div>
+    </div>
+    <div class="summary-grid">
+      <a class="summary-item summary-link" href="{{ url_for('admin_staff_list') }}"><div class="summary-label">Сотрудники</div><div>{{ stats.staff }}</div></a>
+      <a class="summary-item summary-link" href="{{ url_for('admin_institutions_list') }}"><div class="summary-label">Учреждения</div><div>{{ stats.institutions }}</div></a>
+      <a class="summary-item summary-link" href="{{ url_for('admin_departments_list') }}"><div class="summary-label">Отделения</div><div>{{ stats.departments }}</div></a>
+      <a class="summary-item summary-link" href="{{ url_for('admin_patients_list') }}"><div class="summary-label">Пациенты</div><div>{{ stats.patients }}</div></a>
+      <a class="summary-item summary-link" href="{{ url_for('admin_medications_list') }}"><div class="summary-label">Препараты</div><div>{{ stats.medications }}</div></a>
+      <a class="summary-item summary-link" href="{{ url_for('admin_procedures_list') }}"><div class="summary-label">Процедуры</div><div>{{ stats.procedures }}</div></a>
+      <a class="summary-item summary-link" href="{{ url_for('admin_specializations_list') }}"><div class="summary-label">Специализации</div><div>{{ stats.specializations }}</div></a>
+    </div>
+  </div>
+  <style>
+    .summary-link {
+      text-decoration: none;
+      color: inherit;
+      transition: transform .15s ease, border-color .2s ease, background .2s ease;
+    }
+    .summary-link:hover {
+      transform: translateY(-1px);
+      border-color: rgba(88, 129, 87, 0.38);
+      background: #f7fbf6;
+    }
+  </style>
+{% endblock %}

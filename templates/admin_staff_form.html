@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="card stack">
+    <div class="section-head">
+      <div><h1>{{ 'Редактирование сотрудника' if is_edit else 'Новый сотрудник' }}</h1></div>
+      <div class="actions">
+        {% if is_edit %}<a class="btn ghost" href="{{ url_for('admin_staff_detail', staff_id=item_id) }}">К карточке</a>{% endif %}
+        <a class="btn ghost" href="{{ url_for('admin_staff_list') }}">К списку</a>
+      </div>
+    </div>
+    {% if error %}<div class="alert">{{ error }}</div>{% endif %}
+    <form method="post" class="stack">
+      <div class="grid">
+        <div class="field"><label>ФИО</label><input type="text" name="name" value="{{ form_data.name }}" required></div>
+        <div class="field"><label>Отделение</label><select name="department_id" required><option value="">Выберите</option>{% for d in departments %}<option value="{{ d.id }}" {% if form_data.department_id == d.id|string %}selected{% endif %}>{{ d.institution_name }} / {{ d.name }}</option>{% endfor %}</select></div>
+        <div class="field"><label>Телефон</label><input type="text" name="phone" value="{{ form_data.phone }}" required></div>
+        <div class="field"><label>Email</label><input type="email" name="email" value="{{ form_data.email }}" required></div>
+        <div class="field"><label>Дата найма</label><input type="date" name="hire_date" value="{{ form_data.hire_date }}" required></div>
+        <div class="field"><label>Тип сотрудника</label><select name="staff_type" id="staff_type" required>{% for code, title in staff_type_choices %}<option value="{{ code }}" {% if form_data.staff_type == code %}selected{% endif %}>{{ title }}</option>{% endfor %}</select></div>
+        <div class="field"><label>ИНН</label><input type="text" name="inn" value="{{ form_data.inn }}" required></div>
+        <div class="field"><label>Нанят</label><input type="checkbox" name="is_active" value="1" {% if form_data.is_active %}checked{% endif %}></div>
+        <div class="field" id="exp_field"><label>Стаж врача (лет)</label><input type="number" min="0" name="experience_years" id="experience_years" value="{{ form_data.experience_years }}"></div>
+        <div class="field" id="license_field"><label>Номер лицензии</label><input type="text" name="license_number" id="license_number" value="{{ form_data.license_number }}"></div>
+        <div class="field" id="specialization_field"><label>Специализация</label><select name="specialization_id" id="specialization_id"><option value="">Выберите специализацию</option>{% for s in specializations %}<option value="{{ s.id }}" {% if form_data.specialization_id == s.id|string %}selected{% endif %}>{{ s.name }} ({{ s.code }})</option>{% endfor %}</select></div>
+      </div>
+      <div class="actions"><button class="btn" type="submit">Сохранить</button></div>
+    </form>
+  </div>
+  <script>
+    (function () {
+      const staffType = document.getElementById("staff_type");
+      const expField = document.getElementById("exp_field");
+      const expInput = document.getElementById("experience_years");
+      const licenseField = document.getElementById("license_field");
+      const licenseInput = document.getElementById("license_number");
+      const specializationField = document.getElementById("specialization_field");
+      const specializationInput = document.getElementById("specialization_id");
+      if (!staffType) return;
+      function syncDoctorFields() {
+        const isDoctor = staffType.value === "doctor";
+        expField.style.display = isDoctor ? "" : "none";
+        licenseField.style.display = isDoctor ? "" : "none";
+        specializationField.style.display = isDoctor ? "" : "none";
+        expInput.required = isDoctor;
+        licenseInput.required = isDoctor;
+        specializationInput.required = isDoctor;
+        if (!isDoctor) {
+          expInput.value = "";
+          licenseInput.value = "";
+          specializationInput.value = "";
+        }
+      }
+      staffType.addEventListener("change", syncDoctorFields);
+      syncDoctorFields();
+    })();
+  </script>
+{% endblock %}
