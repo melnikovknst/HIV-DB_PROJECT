@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent
 SQL_DIR = BASE_DIR / "sql"
 
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET", "local-secret-key")
+app.secret_key = os.getenv("FLASK_SECRET") or os.urandom(24)
 ADMIN_LOGIN = "admin"
 ADMIN_PASSWORD = "admin"
 

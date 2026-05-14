@@ -96,6 +96,9 @@ erDiagram
 ├── db.py                     # Тонкий слой для query/execute/execute_many/scripts
 ├── demo_seed.py              # Большой детерминированный demo dataset
 ├── requirements.txt          # Python-зависимости
+├── Dockerfile                # Образ Flask-приложения
+├── docker-compose.yml        # Flask + PostgreSQL для локального demo-запуска
+├── .dockerignore             # Исключения из Docker build context
 ├── sql/
 │   ├── 00_create.sql         # Таблицы и связи
 │   ├── 01_seed.sql           # Базовый seed
@@ -104,6 +107,66 @@ erDiagram
 │   └── 04_triggers.sql       # PL/pgSQL-триггеры
 └── templates/                # Jinja UI для admin / doctor / patient
 ```
+
+### Docker Запуск 🐳
+
+Самый простой вариант для локальной демонстрации и проверки проекта — Docker Compose. Он поднимает один контейнер Flask-приложения и один контейнер PostgreSQL с постоянным named volume.
+
+> Этот Docker setup предназначен для local/demo usage и учебной демонстрации. Это не production medical deployment.
+
+#### Требования
+
+- Docker
+- Docker Compose (`docker compose`)
+
+#### Запуск
+
+```bash
+docker compose up --build
+```
+
+Откройте приложение:
+
+```text
+http://localhost:5050
+```
+
+#### Демо-Доступ
+
+| Роль | Как войти |
+| --- | --- |
+| Администратор | роль `admin`, логин `admin`, пароль `admin` |
+| Врач | роль `doctor`, ID существующего врача, например `1` |
+| Пациент | роль `patient`, ID существующего пациента, например `1` |
+
+#### Остановка
+
+```bash
+docker compose down
+```
+
+#### Полный сброс Docker-базы
+
+Команда ниже удалит Docker volume PostgreSQL и пересоздаст БД с demo seed при следующем запуске.
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+#### Docker ENV По Умолчанию
+
+| Переменная | Docker local/demo значение | Назначение |
+| --- | --- | --- |
+| `DB_HOST` | `postgres` | Имя PostgreSQL service внутри Docker Compose |
+| `DB_PORT` | `5432` | Порт PostgreSQL внутри compose-сети |
+| `DB_NAME` | `hiv_project_test` | Имя базы приложения |
+| `DB_USER` | `hiv_user` | Пользователь приложения в PostgreSQL |
+| `DB_PASSWORD` | `hiv_password` | Пароль пользователя приложения |
+| `FLASK_SECRET` | `local-demo-change-me` | Flask secret key для локального demo |
+| `APP_PORT` | `5050` | Порт Flask-приложения внутри контейнера |
+
+PostgreSQL контейнер использует согласованные значения `POSTGRES_DB=hiv_project_test`, `POSTGRES_USER=hiv_user`, `POSTGRES_PASSWORD=hiv_password`. Приложение ждет healthcheck PostgreSQL через `pg_isready`, поэтому обычный запуск одной командой не должен падать из-за еще не готовой базы.
 
 ### Быстрый Старт ⚡
 
@@ -129,6 +192,7 @@ DB_PORT=5432
 DB_NAME=hiv_project_test
 DB_USER=<ваш системный пользователь>
 DB_PASSWORD=
+FLASK_SECRET=<временный случайный secret, если не задан>
 APP_PORT=5050
 ```
 
@@ -221,7 +285,7 @@ http://localhost:5050
 | `DB_NAME` | `hiv_project_test` | Имя базы |
 | `DB_USER` | системный пользователь | Пользователь БД |
 | `DB_PASSWORD` | пустая строка | Пароль БД |
-| `FLASK_SECRET` | `local-secret-key` | Flask secret key |
+| `FLASK_SECRET` | временный случайный secret, если не задан | Flask secret key |
 | `APP_PORT` | `5050` | Порт приложения |
 
 ### Сброс Локальной Базы 🧹
@@ -242,7 +306,7 @@ python app.py
 - 🔄 Миграции через Alembic вместо прямого DDL на старте.
 - 🧵 Connection pooling для PostgreSQL.
 - 🧪 Тесты: unit для валидаторов, integration для маршрутов, SQL regression tests.
-- 📦 Docker Compose для повторяемого запуска.
+- 📦 Production-grade Docker image policy, secrets management и миграции при деплое.
 - 🔍 Логирование и error handling для production.
 
 ### Troubleshooting 🩺
@@ -339,6 +403,9 @@ erDiagram
 ├── db.py                     # Thin query/execute/execute_many/script helper layer
 ├── demo_seed.py              # Large deterministic demo dataset
 ├── requirements.txt          # Python dependencies
+├── Dockerfile                # Flask application image
+├── docker-compose.yml        # Flask + PostgreSQL for local demo runs
+├── .dockerignore             # Docker build context exclusions
 ├── sql/
 │   ├── 00_create.sql         # Tables and relationships
 │   ├── 01_seed.sql           # Base seed
@@ -347,6 +414,66 @@ erDiagram
 │   └── 04_triggers.sql       # PL/pgSQL triggers
 └── templates/                # Jinja UI for admin / doctor / patient
 ```
+
+### Docker Quick Start 🐳
+
+The simplest local/demo path is Docker Compose. It starts one Flask application container and one PostgreSQL container backed by a persistent named volume.
+
+> This Docker setup is for local/demo usage and coursework-style demonstration. It is not a production medical deployment.
+
+#### Prerequisites
+
+- Docker
+- Docker Compose (`docker compose`)
+
+#### Run
+
+```bash
+docker compose up --build
+```
+
+Open the app:
+
+```text
+http://localhost:5050
+```
+
+#### Demo Login
+
+| Role | Login method |
+| --- | --- |
+| Admin | role `admin`, login `admin`, password `admin` |
+| Doctor | role `doctor`, existing doctor ID, for example `1` |
+| Patient | role `patient`, existing patient ID, for example `1` |
+
+#### Stop
+
+```bash
+docker compose down
+```
+
+#### Fully Reset The Docker Database
+
+The commands below remove the PostgreSQL Docker volume and recreate the database with demo seed data on the next startup.
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+#### Default Docker ENV
+
+| Variable | Docker local/demo value | Purpose |
+| --- | --- | --- |
+| `DB_HOST` | `postgres` | PostgreSQL service name inside Docker Compose |
+| `DB_PORT` | `5432` | PostgreSQL port inside the compose network |
+| `DB_NAME` | `hiv_project_test` | Application database name |
+| `DB_USER` | `hiv_user` | Application PostgreSQL user |
+| `DB_PASSWORD` | `hiv_password` | Application PostgreSQL password |
+| `FLASK_SECRET` | `local-demo-change-me` | Flask secret key for local demo |
+| `APP_PORT` | `5050` | Flask application port inside the container |
+
+The PostgreSQL container uses matching values: `POSTGRES_DB=hiv_project_test`, `POSTGRES_USER=hiv_user`, and `POSTGRES_PASSWORD=hiv_password`. The app waits for the PostgreSQL `pg_isready` healthcheck through Docker Compose, so one-command startup should not fail just because the database is still booting.
 
 ### Quick Start ⚡
 
@@ -372,6 +499,7 @@ DB_PORT=5432
 DB_NAME=hiv_project_test
 DB_USER=<your system user>
 DB_PASSWORD=
+FLASK_SECRET=<temporary random secret when unset>
 APP_PORT=5050
 ```
 
@@ -464,7 +592,7 @@ The generator is deterministic, which makes the dataset lively but reproducible.
 | `DB_NAME` | `hiv_project_test` | Database name |
 | `DB_USER` | system user | Database user |
 | `DB_PASSWORD` | empty string | Database password |
-| `FLASK_SECRET` | `local-secret-key` | Flask secret key |
+| `FLASK_SECRET` | temporary random secret when unset | Flask secret key |
 | `APP_PORT` | `5050` | Application port |
 
 ### Reset Local Database 🧹
@@ -485,7 +613,7 @@ python app.py
 - 🔄 Alembic migrations instead of startup DDL.
 - 🧵 PostgreSQL connection pooling.
 - 🧪 Tests: validators, routes, integration flows, and SQL regression checks.
-- 📦 Docker Compose for reproducible local environments.
+- 📦 Production-grade Docker image policy, secrets management, and deployment migrations.
 - 🔍 Production logging and error handling.
 
 ### Troubleshooting 🩺
